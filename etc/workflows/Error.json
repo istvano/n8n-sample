@@ -1,0 +1,62 @@
+{
+  "name": "Error",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f4e97917-d159-4bd1-8c6c-1db91d318d71",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        1180,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "error@localhost.test",
+        "toEmail": "istvan_o@outlook.com",
+        "subject": "Hiba tortent",
+        "options": {
+          "attachments": "={{ $json.execution }}"
+        }
+      },
+      "id": "34410d8b-3110-4b45-a016-6c729b270902",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        520
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "b2e8b9a8-c31c-431d-8fbc-47de43dac99c",
+  "id": "2",
+  "meta": {
+    "instanceId": "85e4aea19de2d285c91b909a8dcd3d895ad511f5c888998471db1734c996c1ee"
+  },
+  "tags": []
+}

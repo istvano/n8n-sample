@@ -1,0 +1,196 @@
+version: "3.8"
+
+volumes:
+  n8n_db_storage:
+  n8n_storage:
+  n8n_redis_storage:
+  n8n_ftp_gui:
+  n8n_ftp_files:
+
+x-shared: &shared
+  restart: always
+  environment:
+    - N8N_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+    - N8N_PORT=5678
+    - N8N_PROTOCOL=${PROTOCOL}
+    - WEBHOOK_URL
+    - N8N_ENCRYPTION_KEY
+    - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+    - NODE_FUNCTION_ALLOW_BUILTIN=*
+    - NODE_FUNCTION_ALLOW_EXTERNAL=*
+    - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+    - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+    - EXECUTIONS_DATA_SAVE_ON_PROGRESS=true
+    - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=false
+    - N8N_DIAGNOSTICS_ENABLED=false
+    - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+    - N8N_TEMPLATES_ENABLED=false
+    - N8N_DIAGNOSTICS_CONFIG_BACKEND=
+    - N8N_DIAGNOSTICS_CONFIG_FRONTEND=
+    - NODE_ENV
+    - N8N_METRICS
+    - N8N_METRICS_PREFIX
+    - VUE_APP_URL_BASE_API=https://${SUBDOMAIN}.${DOMAIN_NAME}
+    - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
+    - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+    - DB_TYPE=postgresdb
+    - DB_POSTGRESDB_HOST=postgres
+    - DB_POSTGRESDB_PORT=5432
+    - DB_POSTGRESDB_DATABASE=${POSTGRES_APP_DB}
+    - DB_POSTGRESDB_USER=${POSTGRES_NON_ROOT_USER}
+    - DB_POSTGRESDB_PASSWORD=${POSTGRES_NON_ROOT_PASSWORD}
+    - EXECUTIONS_MODE=queue
+    - QUEUE_BULL_REDIS_HOST=${REDIS_HOST}
+    - QUEUE_BULL_REDIS_PORT=${REDIS_PORT}
+    - QUEUE_BULL_REDIS_PASSWORD=${REDIS_PASSWORD}
+    - QUEUE_BULL_REDIS_DB=0
+    - QUEUE_RECOVERY_INTERVAL
+    - QUEUE_HEALTH_CHECK_ACTIVE=true
+    - N8N_GRACEFUL_SHUTDOWN_TIMEOUT=${QUEUE_WORKER_TIMEOUT}
+    - N8N_HIDE_USAGE_PAGE=true
+    - N8N_PERSONALIZATION_ENABLED=false
+    - N8N_HIRING_BANNER_ENABLED=false
+    - N8N_USER_MANAGEMENT_DISABLED=true
+    - N8N_LICENSE_AUTO_RENEW_ENABLED=false
+    - N8N_LICENSE_ACTIVATION_KEY=
+    - N8N_DEFAULT_LOCALE
+    - N8N_EMAIL_MODE
+    - N8N_SMTP_HOST
+    - N8N_SMTP_PORT
+    - N8N_SMTP_USER
+    - N8N_SMTP_PASS
+    - N8N_SMTP_SENDER
+    - EXECUTIONS_DATA_MAX_AGE
+    - EXECUTIONS_DATA_PRUNE
+    - EXECUTIONS_DATA_SAVE_ON_ERROR
+    - EXECUTIONS_DATA_SAVE_ON_SUCCESS
+    - EXECUTIONS_DATA_SAVE_ON_PROGRESS
+    - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS
+    - WORKFLOWS_DEFAULT_NAME
+    - N8N_ONBOARDING_FLOW_DISABLED
+    - N8N_WORKFLOW_CALLER_POLICY_DEFAULT_OPTION
+    - FTP_HOST
+    - FTP_PORT
+    - FTP_USERNAME
+    - FTP_PASSWORD
+    - REDIS_HOST
+    - REDIS_PORT
+  links:
+    - postgres
+    - redis
+  volumes:
+    - n8n_storage:/home/node/.n8n
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  redis:
+    image: redis:6-alpine
+    restart: always
+    volumes:
+      - n8n_redis_storage:/data
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis-gui:
+    image: redislabs/redisinsight
+    restart: always
+    ports:
+      - 127.0.0.1:5540:5540
+
+  postgres:
+    image: postgres:16
+    restart: always
+    shm_size: 1GB
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_NON_ROOT_USER
+      - POSTGRES_NON_ROOT_PASSWORD
+      - POSTGRES_APP_DB
+    volumes:
+      - n8n_db_storage:/var/lib/postgresql/data
+      - ./etc/init-data.sh:/docker-entrypoint-initdb.d/init-data.sh
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -h localhost -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # adminer:
+  #   image: adminer
+  #   restart: always
+  #   ports:
+  #     - 127.0.0.1:8080:8080
+
+  mail:
+    image: maildev/maildev
+    restart: always
+    ports:
+      - 127.0.0.1:1080:1080
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:1080 || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ftp:
+    image:  delfer/alpine-ftp-server
+    restart: always
+    environment:
+      - USERS=${FTP_USERS}
+    volumes:
+      - n8n_ftp_files:/ftp/n8n
+    ports:
+      - 127.0.0.1:21:21
+      - 127.0.0.1:21000-21010:21000-21010
+
+  ftp-gui:
+    image: jlesage/filezilla
+    restart: always
+    volumes:
+      - n8n_ftp_gui:/config:rw
+      - ${DATA_FOLDER}/files:/storage:rw
+    ports:
+      - 127.0.0.1:5800:5800
+
+  n8n:
+    <<: *shared
+    image: docker.n8n.io/n8nio/n8n:1.52.2
+    ports:
+      - 127.0.0.1:5678:5678
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
+      interval: 20s
+      retries: 3
+
+  n8n-worker:
+    <<: *shared
+    image: docker.n8n.io/n8nio/n8n:1.52.2
+    command: "worker --concurrency=30"
+    depends_on:
+      - n8n
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
+      interval: 20s
+      retries: 3
+
+
+  n8n-hook:
+    <<: *shared
+    image: docker.n8n.io/n8nio/n8n:1.52.2
+    command: webhook
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
+      interval: 20s
+      retries: 3
+    depends_on:
+      - n8n
