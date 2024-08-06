@@ -5,7 +5,6 @@ volumes:
   n8n_storage:
   n8n_redis_storage:
   n8n_ftp_gui:
-  n8n_ftp_files:
 
 x-shared: &shared
   restart: always
@@ -16,8 +15,9 @@ x-shared: &shared
     - WEBHOOK_URL
     - N8N_ENCRYPTION_KEY
     - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
-    - NODE_FUNCTION_ALLOW_BUILTIN=*
-    - NODE_FUNCTION_ALLOW_EXTERNAL=*
+    - NODE_FUNCTION_ALLOW_BUILTIN
+    - NODE_FUNCTION_ALLOW_EXTERNAL
+    - EXTRA_NODE_MODULES
     - EXECUTIONS_DATA_SAVE_ON_ERROR=all
     - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
     - EXECUTIONS_DATA_SAVE_ON_PROGRESS=true
@@ -69,6 +69,7 @@ x-shared: &shared
     - WORKFLOWS_DEFAULT_NAME
     - N8N_ONBOARDING_FLOW_DISABLED
     - N8N_WORKFLOW_CALLER_POLICY_DEFAULT_OPTION
+    - N8N_DEFAULT_BINARY_DATA_MODE
     - FTP_HOST
     - FTP_PORT
     - FTP_USERNAME
@@ -148,23 +149,27 @@ services:
     environment:
       - USERS=${FTP_USERS}
     volumes:
-      - n8n_ftp_files:/ftp/n8n
+#      - n8n_ftp_files:/ftp/n8n
+      - ${DATA_FOLDER}/files:/ftp/n8n:rw
     ports:
       - 127.0.0.1:21:21
       - 127.0.0.1:21000-21010:21000-21010
 
-  ftp-gui:
-    image: jlesage/filezilla
-    restart: always
-    volumes:
-      - n8n_ftp_gui:/config:rw
-      - ${DATA_FOLDER}/files:/storage:rw
-    ports:
-      - 127.0.0.1:5800:5800
+  # ftp-gui:
+  #   image: jlesage/filezilla
+  #   restart: always
+  #   volumes:
+  #     - n8n_ftp_gui:/config:rw
+  #     - ${DATA_FOLDER}/files:/storage:rw
+  #   ports:
+  #     - 127.0.0.1:5800:5800
 
   n8n:
     <<: *shared
-    image: docker.n8n.io/n8nio/n8n:1.52.2
+    build:
+      context: .
+      args:
+        TAG: 1.52.2
     ports:
       - 127.0.0.1:5678:5678
     healthcheck:
@@ -174,7 +179,10 @@ services:
 
   n8n-worker:
     <<: *shared
-    image: docker.n8n.io/n8nio/n8n:1.52.2
+    build:
+      context: .
+      args:
+        TAG: 1.52.2
     command: "worker --concurrency=30"
     depends_on:
       - n8n
@@ -186,7 +194,10 @@ services:
 
   n8n-hook:
     <<: *shared
-    image: docker.n8n.io/n8nio/n8n:1.52.2
+    build:
+      context: .
+      args:
+        TAG: 1.52.2
     command: webhook
     healthcheck:
       test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]

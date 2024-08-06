@@ -235,3 +235,9 @@ stack/volume/rm:  ##@stack Remove volumes
 		echo "Removing volume: $$v"; \
 		$(DOCKER) volume rm $(CURFOLDER)_$$v; \
 	done
+
+
+#n8n export:workflow --backup --output=/tmp/n8n/
+#n8n export:credentials --backup --output=backups/latest/
+#n8n import:workflow --separate --input=backups/latest/
+#n8n import:credentials --separate --input=backups/latest/
