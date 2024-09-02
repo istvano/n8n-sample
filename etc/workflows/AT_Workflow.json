@@ -1,0 +1,220 @@
+{
+  "name": "AT Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "={{ $json.path }}"
+      },
+      "id": "1676f873-3b55-4794-ba95-06f58b50d94c",
+      "name": "FTP Download file",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        1160
+      ],
+      "credentials": {
+        "ftp": {
+          "id": "ux1gGjY1klTXRnxS",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "path": "/ftp/n8n/payslip/at"
+      },
+      "id": "c2fa2909-f69b-473b-8fd6-7848b0f2a836",
+      "name": "FTP List files on ftp",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        1160
+      ],
+      "credentials": {
+        "ftp": {
+          "id": "ux1gGjY1klTXRnxS",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "limit"
+      },
+      "id": "d5ee12e0-5b88-47cf-a5bb-241db9970509",
+      "name": "Pick file",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rename",
+        "oldPath": "={{ $json.path }}",
+        "newPath": "=/ftp/n8n/payslip/done/{{ $json.name }}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "id": "266d477a-44f4-47cb-967d-fa6610a28e4b",
+      "name": "FTP Move file",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        80,
+        1460
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.name }}",
+              "operation": "contains",
+              "value2": "pdf"
+            }
+          ]
+        }
+      },
+      "id": "487f4475-f6dc-4243-8117-432c24275024",
+      "name": "Filter only PDFs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        1160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "e01940a7-71ae-4d6a-b5e7-1bd4d9b1879d",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1240,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pdf = require('pdf-parse');\n\nconst DESCR_POSITION = 1;\nconst CLIENT_STR = \"Klient\";\nconst PERSON_STR = \"Person\";\n\nconst options = {\n  // internal page parser callback\n  // you can set this option, if you need another format except raw text\n  pagerender: render_page,\n  // max page number to parse\n  max: 2000,\n}\n\nconst findValueEquals = (str,items) => {\n  let pos = 0;\n  if (items) {  \n    let size = items.length;\n    for (let i = 0; i < items.length; i++) {\n      let value = items[i].str;          \n      if (value) {\n        if (value.toUpperCase().localeCompare(str.toUpperCase(), 'en', { sensitivity: 'base' }) == 0) {\n          pos = i;\n          break;\n        }\n      }\n    }    \n  }\n  return pos;\n}\n\nfunction safeGet(items, pos) {\n  if (pos && pos < items.length) {\n    return items[pos].str\n  } else {\n    return \"\";\n  }\n}\n\nfunction render_page(pageData) {\n    const page = pageData.pageNumber;\n  \n    let render_options = {\n      normalizeWhitespace: false,\n      disableCombineTextItems: false\n    }\n\n    return pageData.getTextContent(render_options)\n      .then(function (textContent) {\n\n        const items = textContent.items;\n        const pos = findValueEquals(PERSON_STR,items);\n        const clientPos = findValueEquals(CLIENT_STR,items);\n\n        return JSON.stringify({\n           page,\n           person: safeGet(items,pos+2),\n           descr: items[DESCR_POSITION].str,\n           client: safeGet(items,clientPos+3),\n          }) + \",\";\n\n      })\n}\n\n// get the binary data from the earlier step\nlet binaryDataBufferItem = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst doc = await pdf(binaryDataBufferItem, options);\nlet result = \"\"\nif (doc && doc.text) {\n  result = \"[\" + doc.text + \"{}\" +\"]\"\n} else {\n  result = [];\n}\n\nconst positions = JSON.parse(result).filter(value => Object.keys(value).length !== 0);\n\nfor (const item of $input.all()) {\n  item.json.positions = positions\n}\n\nreturn $input.all();\n\n"
+      },
+      "id": "beac61d5-7df2-43f6-ad44-31946f1d6f85",
+      "name": "Parse PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item;\nconst positions = item.json.positions;\n\nconst cleanPerson = (personData) => {\n\n    const regex = /^(\\d+)\\s*(?:\\(\\s*(\\d+)\\s*\\))?\\s*$/;\n    // Apply the regex to the input string\n    const matches = personData.person.match(regex);\n\n    if (matches) {\n        const id = matches[1]; // The number before the parentheses\n        const rev = matches[2] || null; // The number inside the parentheses, or null if not present\n\n        return {\n            page: personData.page,\n            person: id,\n            revision: rev,\n            client: personData.client,\n            descr: personData.descr\n        };\n    } else {\n      return personData;\n    }\n  \n}\n\nconst reduced = positions\n  .map(cleanPerson)\n  .reduce( (acc,item) => {\n    const person = item.person;\n    const curr = acc[person] || {\n      person: item.person,\n      revision: item.revision,\n      client: item.client,\n      descr: item.descr,\n      pages: []\n    };\n\n    curr.pages.push(item.page);\n    acc[person] = curr;\n    return acc;\n}, {});\n\n// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n// for (const item of $input.all()) {\n//   item.json.myNewField = 1;\n// }\n$input.item.json.positions = reduced;\n\nreturn $input.item;"
+      },
+      "id": "456bca2e-5cc3-4cb2-b0cb-d681a4c80690",
+      "name": "Group by person Id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        1160
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "FTP Download file": {
+      "main": [
+        [
+          {
+            "node": "FTP Move file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parse PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP List files on ftp": {
+      "main": [
+        [
+          {
+            "node": "Filter only PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick file": {
+      "main": [
+        [
+          {
+            "node": "FTP Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter only PDFs": {
+      "main": [
+        [
+          {
+            "node": "Pick file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "FTP List files on ftp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse PDF": {
+      "main": [
+        [
+          {
+            "node": "Group by person Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0584e3f0-3204-483c-a434-edc3c06fb50d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
+  },
+  "id": "VRXfQfi2iErPx8o2",
+  "tags": []
+}
