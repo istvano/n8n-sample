@@ -252,7 +252,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\nconst forms = $input.item.json.forms;\nconst mapping = $input.item.json.mapping;\n\n//is this a number or can be parsed into a number?\nfunction isNumber(value) {\n  return !isNaN(parseFloat(value));\n}\n\n// take a single field from source and target and see if they are the same\nconst diffField = (source, target) => (field) => {\n  const sValue = source && source[field]?source[field]:'';\n  const tValue = target && target[field]?target[field]:'';\n  \n  return {\n    field: field,\n    equals: sValue === tValue,\n    value: sValue,\n    newValue: tValue,\n    diff: isNumber(sValue) && isNumber(tValue) ? parseFloat(tValue) - parseFloat(sValue): 0 \n  }  \n}\n\nconst diffForm = (mapping) => (form) => {\n\n  const vFields = form.value?.mezok?.mezo;\n  const cFields = form.changedTo?.mezok?.mezo;\n\n  const vKeys = (vFields)?Object.keys(vFields):[];\n  const cKeys = (cFields)?Object.keys(cFields):[];\n  \n  const keys = [...new Set([...vKeys, ...cKeys])];\n  \n  const comparator = diffField(vFields, cFields);\n  \n  const result = keys.map(comparator).reduce((acc,obj) => {\n    const name = mapping[obj.field];\n\n    if (!obj.equals) {\n      acc[obj.field] = {\n        equals: obj.equals,\n        value: obj.value,\n        newValue: obj.newValue,\n        diff: obj.diff,\n        name: name?.Adoazon\n      };      \n    }  \n\n    return acc;\n  }, {});\n\n  form.diff = result;\n  \n  return form;  \n}\n  \nconst diff = forms.map(diffForm(mapping));\n\nreturn $input.item;"
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\nconst forms = $input.item.json.forms;\nconst mapping = $input.item.json.mapping;\n\n//is this a number or can be parsed into a number?\nfunction isNumber(value) {\n  return !isNaN(parseFloat(value));\n}\n\nconst isObjectEmpty = (obj) => {\n  return (!obj) || Object.keys(obj).length === 0\n}\n\nfunction diffNumbers(str1, str2) {\n    // Convert the inputs to numbers, treating empty or null values as 0\n    const num1 = str1 ? parseFloat(str1) || 0 : 0;\n    const num2 = str2 ? parseFloat(str2) || 0 : 0;\n\n    // Calculate and return the difference\n    return num1 - num2;\n}\n\nfunction diffStrings(str1, str2) {\n    let diff = {\n        added: '',\n        removed: '',\n        same: ''\n    };\n\n    const maxLength = Math.max(str1.length, str2.length);\n\n    for (let i = 0; i < maxLength; i++) {\n        const char1 = str1[i] || '';\n        const char2 = str2[i] || '';\n\n        if (char1 === char2) {\n            diff.same += char1;\n        } else {\n            if (char1) diff.removed += char1;\n            if (char2) diff.added += char2;\n        }\n    }\n\n    return JSON.stringify(diff);\n}\n\n\n\n// take a single field from source and target and see if they are the same\nconst diffField = (source, target) => (field) => {\n  const sValue = source && source[field]?source[field]:'';\n  const tValue = target && target[field]?target[field]:'';\n  \n  return {\n    field: field,\n    equals: sValue === tValue,\n    value: sValue,\n    newValue: tValue,\n    diff: isNumber(sValue) || isNumber(tValue) ? diffNumbers(tValue, sValue) : diffStrings(sValue, tValue)\n  }  \n}\n\nconst diffForm = (mapping) => (form) => {\n\n  const vFields = form.value?.mezok?.mezo;\n  const cFields = form.changedTo?.mezok?.mezo;\n\n  const vKeys = (vFields)?Object.keys(vFields):[];\n  const cKeys = (cFields)?Object.keys(cFields):[];\n  \n  const keys = [...new Set([...vKeys, ...cKeys])];\n  \n  const comparator = diffField(vFields, cFields);\n  \n  const result = keys.map(comparator).reduce((acc,obj) => {\n    const name = mapping[obj.field];\n\n    if (!obj.equals) {\n      acc[obj.field] = {\n        equals: obj.equals,\n        value: obj.value,\n        newValue: obj.newValue,\n        diff: obj.diff,\n        name: name?.Adoazon\n      };      \n    }  \n\n    return acc;\n  }, {});\n\n  form.diff = result;\n  if (isObjectEmpty(result)) {\n    form.action = 'V'\n  }\n  \n  return form;  \n}\n  \nconst diff = forms.map(diffForm(mapping));\n\nreturn $input.item;"
       },
       "id": "ef1c42e2-06f4-4138-bf1c-84b3e99aee43",
       "name": "Generate diff",
@@ -265,21 +265,21 @@
     },
     {
       "parameters": {
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.first();\n\nconst fields = elm.json.forms?.reduce((acc,item) => {\n  const obj = item?.diff;\n  if (obj) {\n    Object.keys(obj).forEach(key => {\n        if (!acc.includes(key)) {\n            acc.push(key);\n        }\n    });\n  }\n  return acc;\n}, []);\n\n\nconst metadata = {\n  sourceFile: elm.json.source?.file,\n  targetFile: elm.json.target?.file\n}\n\n\nconst result = elm.json.forms.map((item) => {\n  const val = item.changedTo ? item.changedTo : item.value;\n  let csvItem = {\n    kiindulo: metadata.sourceFile,\n    valtozasok: metadata.targetFile,\n    akcio: item.action,\n    tipus: item.type,\n    id: item.id,    \n    adozo_adoszam: val?.nyomtatvanyinformacio?.adozo?.adoszam,\n    munkavallalo_adoszam: val?.nyomtatvanyinformacio?.munkavallalo?.adoazonosito\n  };\n\n  const diff = fields.reduce((acc,field) => {\n      const val = item.diff[field];\n      acc[field+\"_megnevezes\"] = val?.name;\n      acc[field+\"_eredeti\"] = val?.value;\n      acc[field+\"_modositott\"] = val?.newValue;\n      acc[field+\"_kulonbseg\"] = val?.diff;\n      return acc;\n  }, {});  \n  \n  return { ...csvItem, ...diff };;\n});\n\nreturn result;\n"
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.first();\n\n// const fields = elm.json.forms?.reduce((acc,item) => {\n//   const obj = item?.diff;\n//   if (obj) {\n//     Object.keys(obj).forEach(key => {\n//         if (!acc.includes(key)) {\n//             acc.push(key);\n//         }\n//     });\n//   }\n//   return acc;\n// }, []);\n\n\nconst metadata = {\n  sourceFile: elm.json.source?.file,\n  targetFile: elm.json.target?.file\n}\n\n\nconst result = elm.json.forms.map((item) => {\n  const val = item.changedTo ? item.changedTo : item.value;\n  let csvItem = {\n    kiindulo: metadata.sourceFile,\n    valtozasok: metadata.targetFile,\n    akcio: item.action,\n    tipus: item.type,\n    id: item.id,    \n    adozo_adoszam: val?.nyomtatvanyinformacio?.adozo?.adoszam,\n    munkavallalo_adoszam: val?.nyomtatvanyinformacio?.munkavallalo?.adoazonosito\n  };\n\n  csvItem.diff = item.diff;\n  \n  return csvItem;\n});\n\nreturn result;\n"
       },
       "id": "41f9fe36-dcb6-4ef7-b7ea-eff491ca47c9",
       "name": "Convert to CSV structure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2020,
+        2040,
         1000
       ]
     },
     {
       "parameters": {
         "options": {
-          "fileName": "={{ $json.kiindulo }} _{{ $json.valtozasok }}.csv"
+          "fileName": "={{ $json.kiindulo }} _{{ $json.valtozasok }}-alkalmazo.csv"
         }
       },
       "id": "3052e56c-47e8-49f9-8f29-7e279cd5a639",
@@ -287,8 +287,141 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2240,
+        2780,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "fileName": "={{ $json.kiindulo }} _{{ $json.valtozasok }}-alkalmazott.csv"
+        }
+      },
+      "id": "bd0ec888-df02-4099-9f60-26cfdb403de1",
+      "name": "Convert to File Dolg",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2780,
         1000
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "03668bf9-19da-4682-a562-90dbcb347e89",
+              "leftValue": "={{ $json.akcio }}",
+              "rightValue": "M",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "29372dd5-c6dd-4d1f-8909-8f3c9ba44e34",
+              "leftValue": "={{ $json.akcio }}",
+              "rightValue": "T",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "c942acc5-738c-46ee-a8ab-bbf6a12632d5",
+              "leftValue": "={{ $json.akcio }}",
+              "rightValue": "U",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "a7a8b710-267f-4a11-953c-92e89afa3f03",
+      "name": "Filter Changes",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.1,
+      "position": [
+        2580,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "fileName": "={{ $json.kiindulo }} _{{ $json.valtozasok }}-alkalmazott-modositott.csv"
+        }
+      },
+      "id": "017549ad-4ee9-4e07-9363-3f95fc260b94",
+      "name": "Convert to File Dolg Chnages",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2800,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "03668bf9-19da-4682-a562-90dbcb347e89",
+              "leftValue": "={{ $json.akcio }}",
+              "rightValue": "V",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "8117f31f-1845-4c13-9775-165d09746c9c",
+      "name": "Filter No Changes",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.1,
+      "position": [
+        2580,
+        1600
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "fileName": "={{ $json.kiindulo }} _{{ $json.valtozasok }}-alkalmazott-valtozatlan.csv"
+        }
+      },
+      "id": "75ea4eaa-458a-4127-8720-f1ff26566a9a",
+      "name": "Convert to File Dolg No Chnages",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2800,
+        1600
       ]
     },
     {
@@ -296,13 +429,13 @@
         "operation": "upload",
         "path": "=/ftp/n8n/taxreport/done/{{ $binary.data.fileName }}"
       },
-      "id": "12807309-6e3c-454b-b217-f3e65bcd05b2",
-      "name": "FTP",
+      "id": "f74edde9-dfd7-4a50-bbf2-8c81932a014f",
+      "name": "FTP Upload",
       "type": "n8n-nodes-base.ftp",
       "typeVersion": 1,
       "position": [
-        2460,
-        1000
+        3200,
+        1220
       ],
       "credentials": {
         "ftp": {
@@ -310,6 +443,99 @@
           "name": "FTP account"
         }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "eab53771-1203-48cc-b7e6-af6c44cf4a12",
+              "leftValue": "={{ $json.tipus }}",
+              "rightValue": "Alkalmazo",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d21b7288-b27a-4d54-ab12-8132b9978da6",
+      "name": "Only Employer Data",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.1,
+      "position": [
+        2340,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.item.json;\n\nconst fields = Object.keys(elm.diff);\n\nconst diff = fields.reduce((acc,field) => {\n    const val = elm.diff[field];\n    acc[field+\"_megnevezes\"] = val?.name;\n    acc[field+\"_eredeti\"] = val?.value;\n    acc[field+\"_modositott\"] = val?.newValue;\n    acc[field+\"_kulonbseg\"] = val?.diff;\n    return acc;\n}, {});  \n\ndelete elm.diff;\n\nreturn { ...elm, ...diff };\n"
+      },
+      "id": "84ec3567-5035-4e07-bfa5-e5be4650256c",
+      "name": "Convert DIFF to CSV structure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "eab53771-1203-48cc-b7e6-af6c44cf4a12",
+              "leftValue": "={{ $json.tipus }}",
+              "rightValue": "Alkalmazott",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1ce1e5c7-07a6-44ff-828b-45da5b8cb5c0",
+      "name": "Only Employee",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.1,
+      "position": [
+        2340,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst items = $input.all();\n\nconst fields = items.reduce((acc, item) => {\n  Object.keys(item.json.diff).forEach(key => acc.add(key));\n  return acc;\n}, new Set());\n\nconst fieldArray = Array.from(fields);\n\nconst result = items.map(item => {\n\n  const diff = fieldArray.reduce((acc,field) => {\n      const val = item.json.diff[field];      \n      acc[field+\"_megnevezes\"] = val?.name ? val?.name : field;\n      acc[field+\"_eredeti\"] = val?.value ? val?.value : '';\n      acc[field+\"_modositott\"] = val?.newValue ? val?.newValue : '';\n      acc[field+\"_kulonbseg\"] = val?.diff ? val?.diff : '';\n      return acc;\n  }, {});\n  \n  delete item.json.diff;\n  return {\n    ...item.json, ...diff\n  };\n});\n\nreturn result;"
+      },
+      "id": "b1b1b3d6-cf37-416d-a25d-db86bb1915cf",
+      "name": "Convert DIFF to CSV structure1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        1000
+      ]
     }
   ],
   "pinData": {},
@@ -509,7 +735,12 @@
       "main": [
         [
           {
-            "node": "Convert to File",
+            "node": "Only Employer Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Only Employee",
             "type": "main",
             "index": 0
           }
@@ -520,7 +751,116 @@
       "main": [
         [
           {
-            "node": "FTP",
+            "node": "FTP Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File Dolg": {
+      "main": [
+        [
+          {
+            "node": "FTP Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Changes": {
+      "main": [
+        [
+          {
+            "node": "Convert to File Dolg Chnages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File Dolg Chnages": {
+      "main": [
+        [
+          {
+            "node": "FTP Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter No Changes": {
+      "main": [
+        [
+          {
+            "node": "Convert to File Dolg No Chnages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File Dolg No Chnages": {
+      "main": [
+        [
+          {
+            "node": "FTP Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Employer Data": {
+      "main": [
+        [
+          {
+            "node": "Convert DIFF to CSV structure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert DIFF to CSV structure": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Employee": {
+      "main": [
+        [
+          {
+            "node": "Convert DIFF to CSV structure1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert DIFF to CSV structure1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File Dolg",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Changes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter No Changes",
             "type": "main",
             "index": 0
           }
@@ -532,7 +872,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "892490ed-9b4d-436d-adf2-914bd95308de",
+  "versionId": "2937e50d-0c74-44a6-b0e7-9c514fdffce2",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
