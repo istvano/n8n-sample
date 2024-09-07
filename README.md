@@ -14,3 +14,7 @@ xmllint --format --encode utf-8 2408_24_03_HR_Kulcsbér_ell_2024.07.31.xml > 240
 ## reformat xml
 
 you can use ```xmllint --format 2408_24_03_HR_Kulcsbér_ell_2024.07.31.xml ``` to format the xml file
+
+## reformat mdf.csv
+
+```conv -f iso-8859-1 -t UTF-8 mdf.csv > mdf-ok.csv```
