@@ -30,8 +30,8 @@ x-shared: &shared
     - NODE_ENV
     - N8N_METRICS
     - N8N_METRICS_PREFIX
-    - VUE_APP_URL_BASE_API=https://${SUBDOMAIN}.${DOMAIN_NAME}
-    - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
+    - VUE_APP_URL_BASE_API={PROTOCOL}://${SUBDOMAIN}.${DOMAIN_NAME}:${EXT_PORT}
+    - WEBHOOK_URL=${PROTOCOL}://${SUBDOMAIN}.${DOMAIN_NAME}:${EXT_PORT}/
     - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=postgres
@@ -150,7 +150,7 @@ services:
       - USERS=${FTP_USERS}
     volumes:
 #      - n8n_ftp_files:/ftp/n8n
-      - ${DATA_FOLDER}/files:/ftp/n8n:rw
+      - ${DATA_FOLDER}/ftp:/ftp/n8n:rw
     ports:
       - 127.0.0.1:21:21
       - 127.0.0.1:21000-21010:21000-21010

@@ -3,118 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "path": "={{ $json.path }}"
-      },
-      "id": "3924a5b9-f201-4542-a1ea-cd70d727d0dc",
-      "name": "FTP Download file",
-      "type": "n8n-nodes-base.ftp",
-      "typeVersion": 1,
-      "position": [
-        -180,
-        1160
-      ],
-      "credentials": {
-        "ftp": {
-          "id": "ux1gGjY1klTXRnxS",
-          "name": "FTP account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "list",
-        "path": "/ftp/n8n/taxreport"
-      },
-      "id": "00064f11-a64a-48a0-a974-a0cefc8fbfd3",
-      "name": "FTP List files on ftp",
-      "type": "n8n-nodes-base.ftp",
-      "typeVersion": 1,
-      "position": [
-        -1000,
-        1160
-      ],
-      "credentials": {
-        "ftp": {
-          "id": "ux1gGjY1klTXRnxS",
-          "name": "FTP account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "rename",
-        "oldPath": "={{ $json.path }}",
-        "newPath": "=/ftp/n8n/taxexport/done/{{ $json.name }}",
-        "options": {
-          "createDirectories": true
-        }
-      },
-      "id": "ac79a388-7575-4dc9-aaa6-981ac9d45b8d",
-      "name": "FTP Move file",
-      "type": "n8n-nodes-base.ftp",
-      "typeVersion": 1,
-      "position": [
-        80,
-        1460
-      ],
-      "disabled": true
-    },
-    {
-      "parameters": {},
-      "id": "937e7ddf-2797-47f2-bc9d-7d004e688b59",
-      "name": "When clicking ‘Test workflow’",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        -1240,
-        1160
-      ]
-    },
-    {
-      "parameters": {
-        "operation": "xml",
-        "options": {}
-      },
-      "id": "2055ff9b-25ef-4788-ae01-7073135dd0be",
-      "name": "Extract from File",
-      "type": "n8n-nodes-base.extractFromFile",
-      "typeVersion": 1,
-      "position": [
-        240,
-        1160
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "function extractUniqueId(data) {\n    // Safely access adozo.adoszam and munkavallalo.adoazonosito\n    const companyTaxNumber = data?.adozo?.adoszam;\n    const employeeTaxNumber = data?.munkavallalo?.adoazonosito;\n\n    // Check if both values exist\n    if (companyTaxNumber && employeeTaxNumber) {\n        return companyTaxNumber + \"-\" + employeeTaxNumber;\n    } else if (companyTaxNumber) {\n      return companyTaxNumber;\n    } else {\n        return null; // Return null or another default value if any part is missing\n    }\n}\n\nfunction normalizeFormFields(fieldArray) {\n  const result = fieldArray.reduce(function (acc, item) {    \n    if (item.eazon && item._) {\n       acc[item.eazon] = item._;      \n    }\n    return acc;\n  }, {})\n  return result;\n}\n\nconst nyomtatvanyok = $input.item.json.nyomtatvanyok;\nconst result = nyomtatvanyok.nyomtatvany.reduce(function (result, item) {\n  const info = item.nyomtatvanyinformacio;\n  const fieldArray = item.mezok?.mezo;\n  const id = extractUniqueId(info)\n  const fields = normalizeFormFields(fieldArray);\n  item.mezok.mezo = fields;\n  result[id] = item;\n  return result;\n}, {});\n\n$input.item.json.nyomtatvanyok = {\n  abev: nyomtatvanyok.abev,\n  nyomtatvany: result\n}\n\nreturn $input.item;"
-      },
-      "id": "1ebe6c6b-e030-444d-bf77-f2d18fddcab8",
-      "name": "Normalize Document Structure",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        340,
-        900
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "options": {}
-      },
-      "id": "8ef08433-ce3e-4700-911f-15e8a693c1a9",
-      "name": "Combine xml with metadata",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        140,
-        900
-      ]
-    },
-    {
-      "parameters": {
+        "dataPropertyName": "source",
         "options": {}
       },
       "id": "42fb3786-a4ab-4d2e-894e-f7e852474f0c",
@@ -122,60 +11,13 @@
       "type": "n8n-nodes-base.xml",
       "typeVersion": 1,
       "position": [
-        460,
-        1160
+        -480,
+        1220
       ]
     },
     {
       "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.name }}",
-              "operation": "contains",
-              "value2": "xml"
-            }
-          ]
-        }
-      },
-      "id": "0e626849-de63-4137-a2df-b44cfaeb82d4",
-      "name": "Filter only XML",
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 1,
-      "position": [
-        -780,
-        1160
-      ]
-    },
-    {
-      "parameters": {
-        "maxItems": 2
-      },
-      "id": "4b078570-9c1a-48ae-8fb8-d5788e1bd819",
-      "name": "Limit to 2 files",
-      "type": "n8n-nodes-base.limit",
-      "typeVersion": 1,
-      "position": [
-        -580,
-        1160
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "function getDate(filename) {\n    // Find the position of the last underscore\n    const lastUnderscoreIndex = filename.lastIndexOf('_');\n\n    // Find the position of the .xml extension\n    const extensionIndex = filename.lastIndexOf('.xml');\n\n    // Extract the string between the last underscore and the .xml extension\n    const extractedString = filename.slice(lastUnderscoreIndex + 1, extensionIndex);\n\n    const [year, month, day] = extractedString.split('.').map(Number);\n\n    // Create a new Date object (note: month is 0-indexed in JavaScript)\n    const date = new Date(year, month - 1, day);\n  \n    return date;\n}\n\n// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.fileDate = getDate(item.json.name);\n}\n\n$input.all()[0].json.source = $input.all()[0].json.fileDate.getTime() < $input.all()[1].json.fileDate.getTime()\n$input.all()[0].json.target = $input.all()[0].json.fileDate.getTime() > $input.all()[1].json.fileDate.getTime()\n$input.all()[1].json.source = $input.all()[0].json.fileDate.getTime() > $input.all()[1].json.fileDate.getTime()\n$input.all()[1].json.target = $input.all()[0].json.fileDate.getTime() < $input.all()[1].json.fileDate.getTime()\n\n\nreturn $input.all();"
-      },
-      "id": "17c90e63-d6cc-4c7f-89cd-b2f0c23d2434",
-      "name": "Identify Order",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -400,
-        1160
-      ]
-    },
-    {
-      "parameters": {
-        "path": "=/ftp/n8n/taxreport/mdf.csv",
+        "path": "=/ftp/n8n/mdf.csv",
         "binaryPropertyName": "mapping"
       },
       "id": "6b576c27-68a0-4c37-98f8-d8edd3e813e3",
@@ -183,8 +25,8 @@
       "type": "n8n-nodes-base.ftp",
       "typeVersion": 1,
       "position": [
-        760,
-        1160
+        340,
+        1400
       ],
       "executeOnce": false,
       "credentials": {
@@ -203,76 +45,34 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1240,
-        1160
-      ]
-    },
-    {
-      "parameters": {
-        "binaryPropertyName": "mapping",
-        "options": {}
-      },
-      "id": "e9250311-7d40-4be4-80a7-22e9f5406312",
-      "name": "Extract from File1",
-      "type": "n8n-nodes-base.extractFromFile",
-      "typeVersion": 1,
-      "position": [
-        1000,
-        1160
-      ]
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "options": {}
-      },
-      "id": "10f0a909-0885-442b-ba18-dd8f9407436a",
-      "name": "Merge",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        1580,
-        1000
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const filterItem = (field, value) => (item) => {\n  return (item.json[field] && item.json[field] === value);    \n}\n\nconst createType = (id) =>  id?.indexOf(\"-\") === -1 ? 'Alkalmazo' : 'Alkalmazott';\n\n// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nconst source = $input.all().filter(filterItem(\"source\",true)).shift();\nconst target = $input.all().filter(filterItem(\"target\",true)).shift();\n\n// get all the keys of item in nyomtatvany (source)\nconst sourceKeys = Object.keys(source?.json?.nyomtatvanyok?.nyomtatvany);\nconst targetKeys = Object.keys(target?.json?.nyomtatvanyok?.nyomtatvany);\n// get all the keys of item in nyomtatvany (target)\n\n// Find common items between the two arrays\nconst commonItems = sourceKeys.filter(item => targetKeys.includes(item));\n\n// Find items only in array1 (not in array2)\nconst uniqueToSource = sourceKeys.filter(item => !targetKeys.includes(item));\n\n// Find items only in array2 (not in array1)\nconst uniqueToTarget = targetKeys.filter(item => !sourceKeys.includes(item));\n\nconst commonForms = commonItems.map((id) => {\n  const orig = source?.json?.nyomtatvanyok?.nyomtatvany[id];\n  const changed = target?.json?.nyomtatvanyok?.nyomtatvany[id];\n  return {\n    id: id,\n    value: orig,\n    changedTo: changed,\n    action: 'M',\n    type: createType(id)\n  }\n});\n\nconst sourceFomrs = uniqueToSource.map((id) => {\n  const orig = source?.json?.nyomtatvanyok?.nyomtatvany[id];\n  return {\n    id: id,\n    value: orig,\n    action: 'T',\n    type: createType(id)\n  }\n});\n\nconst targetForms = uniqueToTarget.map((id) => {\n  const changed = target?.json?.nyomtatvanyok?.nyomtatvany[id];\n  return {\n    id: id,\n    changedTo: changed,\n    action: 'U',\n    type: createType(id)\n  }\n});\n\nreturn {\n  source: {\n    file: source.json?.name,\n    size: source.json?.size,\n    date: source.json?.fileDate\n  },\n  target: {\n    file: target.json?.name,\n    size: target.json?.size,\n    date: target.json?.fileDate    \n  },\n  forms: [...commonForms, ...sourceFomrs, ...targetForms]\n}"
-      },
-      "id": "bed8f4f0-c26f-4766-9784-b4a9775f32f3",
-      "name": "Merge source target",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        580,
-        900
+        780,
+        1400
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\nconst forms = $input.item.json.forms;\nconst mapping = $input.item.json.mapping;\n\n//is this a number or can be parsed into a number?\nfunction isNumber(value) {\n  return !isNaN(parseFloat(value));\n}\n\nconst isObjectEmpty = (obj) => {\n  return (!obj) || Object.keys(obj).length === 0\n}\n\nfunction diffNumbers(str1, str2) {\n    // Convert the inputs to numbers, treating empty or null values as 0\n    const num1 = str1 ? parseFloat(str1) || 0 : 0;\n    const num2 = str2 ? parseFloat(str2) || 0 : 0;\n\n    // Calculate and return the difference\n    return num1 - num2;\n}\n\nfunction diffStrings(str1, str2) {\n    let diff = {\n        added: '',\n        removed: '',\n        same: ''\n    };\n\n    const maxLength = Math.max(str1.length, str2.length);\n\n    for (let i = 0; i < maxLength; i++) {\n        const char1 = str1[i] || '';\n        const char2 = str2[i] || '';\n\n        if (char1 === char2) {\n            diff.same += char1;\n        } else {\n            if (char1) diff.removed += char1;\n            if (char2) diff.added += char2;\n        }\n    }\n\n    return JSON.stringify(diff);\n}\n\n\n\n// take a single field from source and target and see if they are the same\nconst diffField = (source, target) => (field) => {\n  const sValue = source && source[field]?source[field]:'';\n  const tValue = target && target[field]?target[field]:'';\n  \n  return {\n    field: field,\n    equals: sValue === tValue,\n    value: sValue,\n    newValue: tValue,\n    diff: isNumber(sValue) || isNumber(tValue) ? diffNumbers(tValue, sValue) : diffStrings(sValue, tValue)\n  }  \n}\n\nconst diffForm = (mapping) => (form) => {\n\n  const vFields = form.value?.mezok?.mezo;\n  const cFields = form.changedTo?.mezok?.mezo;\n\n  const vKeys = (vFields)?Object.keys(vFields):[];\n  const cKeys = (cFields)?Object.keys(cFields):[];\n  \n  const keys = [...new Set([...vKeys, ...cKeys])];\n  \n  const comparator = diffField(vFields, cFields);\n  \n  const result = keys.map(comparator).reduce((acc,obj) => {\n    const fieldMap = mapping[obj.field];\n\n    if (!obj.equals) {\n      const ignore = fieldMap && fieldMap.Kihagyva && fieldMap.Kihagyva.includes('T');\n\n      if (!ignore) {\n        acc[obj.field] = {\n          equals: obj.equals,\n          value: obj.value,\n          newValue: obj.newValue,\n          diff: obj.diff,\n          name: fieldMap?.Megnevezes ? fieldMap?.Megnevezes : fieldMap?.Adoazon\n        };      \n      }\n    }  \n\n    return acc;\n  }, {});\n\n  form.diff = result;\n  if (isObjectEmpty(result)) {\n    form.action = 'V'\n  }\n  \n  return form;  \n}\n  \nconst diff = forms.map(diffForm(mapping));\n\nreturn $input.item;"
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\nconst forms = $input.item.json.forms;\nconst mapping = $input.item.json.mapping;\n\n//is this a number or can be parsed into a number?\nfunction isNumber(value) {\n  return !isNaN(parseFloat(value));\n}\n\nconst isObjectEmpty = (obj) => {\n  return (!obj) || Object.keys(obj).length === 0\n}\n\nfunction diffNumbers(str1, str2) {\n    // Convert the inputs to numbers, treating empty or null values as 0\n    const num1 = str1 ? parseFloat(str1) || 0 : 0;\n    const num2 = str2 ? parseFloat(str2) || 0 : 0;\n\n    // Calculate and return the difference\n    return num1 - num2;\n}\n\nfunction diffStrings(str1, str2) {\n    let diff = {\n        added: '',\n        removed: '',\n        same: ''\n    };\n\n    const maxLength = Math.max(str1.length, str2.length);\n\n    for (let i = 0; i < maxLength; i++) {\n        const char1 = str1[i] || '';\n        const char2 = str2[i] || '';\n\n        if (char1 === char2) {\n            diff.same += char1;\n        } else {\n            if (char1) diff.removed += char1;\n            if (char2) diff.added += char2;\n        }\n    }\n\n    return JSON.stringify(diff);\n}\n\n\n\n// take a single field from source and target and see if they are the same\nconst diffField = (source, target) => (field) => {\n  const sValue = source && source[field]?source[field]:'';\n  const tValue = target && target[field]?target[field]:'';\n  \n  return {\n    field: field,\n    equals: sValue === tValue,\n    value: sValue,\n    newValue: tValue,\n    diff: isNumber(sValue) || isNumber(tValue) ? diffNumbers(tValue, sValue) : diffStrings(sValue, tValue)\n  }  \n}\n\nconst diffForm = (mapping) => (form) => {\n\n  const vFields = form.value?.mezok?.mezo;\n  const cFields = form.changedTo?.mezok?.mezo;\n\n  const vKeys = (vFields)?Object.keys(vFields):[];\n  const cKeys = (cFields)?Object.keys(cFields):[];\n  \n  const keys = [...new Set([...vKeys, ...cKeys])];\n  \n  const comparator = diffField(vFields, cFields);\n  \n  const result = keys.map(comparator).reduce((acc,obj) => {\n    const fieldMap = mapping[obj.field];\n\n    if (!obj.equals) {\n      const ignore = fieldMap && fieldMap.Kihagyva && fieldMap.Kihagyva.includes('T');\n\n      if (!ignore) {\n        acc[obj.field] = {\n          equals: obj.equals,\n          value: obj.value,\n          newValue: obj.newValue,\n          diff: obj.diff,\n          name: fieldMap?.Megnevezes ? fieldMap?.Megnevezes : fieldMap?.Adoazon\n        };      \n      }\n    }  \n\n    return acc;\n  }, {});\n\n  form.diff = result;\n  if (isObjectEmpty(result)) {\n    form.action = 'V'\n  }\n  \n  return form;  \n}\n  \nconst diff = forms.map(diffForm(mapping));\ndelete $input.item.json.mapping;\n\nreturn $input.item;"
       },
       "id": "ef1c42e2-06f4-4138-bf1c-84b3e99aee43",
       "name": "Generate diff",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1800,
+        1340,
         1000
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.first();\n\nconst metadata = {\n  sourceFile: elm.json.source?.file,\n  targetFile: elm.json.target?.file\n}\n\n\nconst result = elm.json.forms.map((item) => {\n  const val = item.changedTo ? item.changedTo : item.value;\n  let csvItem = {\n    kiindulo: metadata.sourceFile,\n    valtozasok: metadata.targetFile,\n    akcio: item.action,\n    tipus: item.type,\n    id: item.id,    \n    adozo_adoszam: val?.nyomtatvanyinformacio?.adozo?.adoszam,\n    munkavallalo_adoszam: val?.nyomtatvanyinformacio?.munkavallalo?.adoazonosito\n  };\n\n  csvItem.diff = item.diff;\n  \n  return csvItem;\n});\n\nreturn result;\n"
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.first();\n\nconst metadata = {\n  sourceFile: elm.json.sourceXml?.filename,\n  targetFile: elm.json.targetXml?.filename\n}\n\n\nconst result = elm.json.forms.map((item) => {\n  const val = item.changedTo ? item.changedTo : item.value;\n  let csvItem = {\n    kiindulo: metadata.sourceFile,\n    valtozasok: metadata.targetFile,\n    akcio: item.action,\n    tipus: item.type,\n    id: item.id,    \n    adozo_adoszam: val?.nyomtatvanyinformacio?.adozo?.adoszam,\n    munkavallalo_adoszam: val?.nyomtatvanyinformacio?.munkavallalo?.adoazonosito\n  };\n\n  csvItem.diff = item.diff;\n  \n  return csvItem;\n});\n\nreturn result;\n"
       },
       "id": "41f9fe36-dcb6-4ef7-b7ea-eff491ca47c9",
       "name": "Convert to CSV structure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2040,
+        1580,
         1000
       ]
     },
@@ -287,7 +87,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2780,
+        2420,
         740
       ]
     },
@@ -302,7 +102,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2780,
+        2420,
         1000
       ]
     },
@@ -356,7 +156,7 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.1,
       "position": [
-        2580,
+        2220,
         1400
       ]
     },
@@ -371,7 +171,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2800,
+        2440,
         1400
       ]
     },
@@ -405,7 +205,7 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.1,
       "position": [
-        2580,
+        2220,
         1600
       ]
     },
@@ -420,29 +220,9 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2800,
+        2440,
         1600
       ]
-    },
-    {
-      "parameters": {
-        "operation": "upload",
-        "path": "=/ftp/n8n/taxreport/done/{{ $binary.data.fileName }}"
-      },
-      "id": "f74edde9-dfd7-4a50-bbf2-8c81932a014f",
-      "name": "FTP Upload",
-      "type": "n8n-nodes-base.ftp",
-      "typeVersion": 1,
-      "position": [
-        3200,
-        1220
-      ],
-      "credentials": {
-        "ftp": {
-          "id": "ux1gGjY1klTXRnxS",
-          "name": "FTP account"
-        }
-      }
     },
     {
       "parameters": {
@@ -473,7 +253,7 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.1,
       "position": [
-        2340,
+        1980,
         740
       ]
     },
@@ -487,7 +267,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2560,
+        2200,
         740
       ]
     },
@@ -520,7 +300,7 @@
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2.1,
       "position": [
-        2340,
+        1980,
         1000
       ]
     },
@@ -533,127 +313,323 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2560,
+        2200,
         1000
       ]
+    },
+    {
+      "parameters": {
+        "operation": "compress",
+        "binaryPropertyName": "={{ $json.binaryKeys }}",
+        "fileName": "={{ $json[\"fileName\"] }}.zip"
+      },
+      "id": "4ef8dff9-67f0-447f-8c02-41771678b70f",
+      "name": "Compression",
+      "type": "n8n-nodes-base.compression",
+      "typeVersion": 1.1,
+      "position": [
+        3480,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let binaries = {}, binary_keys = [], fileName = 'data';\n\nfor([index, item] of items.entries()) {\n    binaries[`data_${index}`] = item.binary.data;\n    binary_keys.push(`data_${index}`);\n    fileName = item.binary.data.fileName;\n}\n\nlet lastXmlIndex = fileName.lastIndexOf('.xml');\n\n// Slice the string up to the end of the last \".xml\"\nif (lastXmlIndex !== -1) {\n    fileName = fileName.slice(0, lastXmlIndex + 4); // +4 to include \".xml\"\n}\n\nreturn [{\n    json: {\n        binaryKeys: binary_keys.join(','),\n        fileName: fileName\n    },\n    binary: binaries\n}];"
+      },
+      "id": "69db0795-b9ab-4891-afc5-da7d09c3440b",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3180,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "994441a9-c423-4410-b8c0-ef600b7cc43a",
+      "name": "Merge Result to single stream",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2900,
+        1180
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "workflow@n8n.localhost.local",
+        "toEmail": "={{ $('form').first().json.Email }}",
+        "subject": "Abev workflow eredmenyek",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a ZIP fájlt az e-mailben, amely tartalmazza az eredményeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "44594c22-b34d-4c01-a1f2-9ef26249ee4a",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3740,
+        1200
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "mapping",
+        "options": {}
+      },
+      "id": "e9250311-7d40-4be4-80a7-22e9f5406312",
+      "name": "Extract from Mapping.csv",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        560,
+        1400
+      ]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "target",
+        "options": {}
+      },
+      "id": "29388ca9-c0ce-4ddb-ab91-6d5a569cb6d6",
+      "name": "Convert XML to JSON1",
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        1460
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "xml",
+        "binaryPropertyName": "Kiindulo_xml",
+        "destinationKey": "source",
+        "options": {}
+      },
+      "id": "2055ff9b-25ef-4788-ae01-7073135dd0be",
+      "name": "Extract Start",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        1220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "xml",
+        "binaryPropertyName": "Valtozott_xml",
+        "destinationKey": "target",
+        "options": {}
+      },
+      "id": "d298b8c7-c976-4c0f-8ec0-dbccfde68dae",
+      "name": "Extract Changed",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        1460
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9b6ae32d-d530-48f7-ae00-cdda5a04d58b",
+              "name": "source",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7c4f7f50-0244-4645-b2ad-b79db08cf9b5",
+      "name": "Move data to source",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -280,
+        1220
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9b6ae32d-d530-48f7-ae00-cdda5a04d58b",
+              "name": "target",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8bf23273-3494-4c0e-a32c-e7357002b2b2",
+      "name": "Move data to target",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -280,
+        1460
+      ]
+    },
+    {
+      "parameters": {
+        "keys": {
+          "key": [
+            {
+              "currentKey": "Kiindulo xml",
+              "newKey": "sourceXml"
+            },
+            {
+              "currentKey": "Valtozott xml",
+              "newKey": "targetXml"
+            }
+          ]
+        },
+        "additionalOptions": {}
+      },
+      "id": "06be83df-bed9-4ecd-a9d3-429b0b01cd3f",
+      "name": "Rename Keys",
+      "type": "n8n-nodes-base.renameKeys",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "id": "8ef08433-ce3e-4700-911f-15e8a693c1a9",
+      "name": "Combine xml with metadata",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        140,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "10f0a909-0885-442b-ba18-dd8f9407436a",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1080,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function extractUniqueId(data) {\n    // Safely access adozo.adoszam and munkavallalo.adoazonosito\n    const companyTaxNumber = data?.adozo?.adoszam;\n    const employeeTaxNumber = data?.munkavallalo?.adoazonosito;\n\n    // Check if both values exist\n    if (companyTaxNumber && employeeTaxNumber) {\n        return companyTaxNumber + \"-\" + employeeTaxNumber;\n    } else if (companyTaxNumber) {\n      return companyTaxNumber;\n    } else {\n        return null; // Return null or another default value if any part is missing\n    }\n}\n\nfunction normalizeFormFields(fieldArray) {\n  const result = fieldArray.reduce(function (acc, item) {    \n    if (item.eazon && item._) {\n       acc[item.eazon] = item._;      \n    }\n    return acc;\n  }, {})\n  return result;\n}\n\nfunction normalizeForm(data) {\n\n  return data.reduce(function (result, item) {\n    const info = item.nyomtatvanyinformacio;\n    const fieldArray = item.mezok?.mezo;\n    const id = extractUniqueId(info)\n    const fields = normalizeFormFields(fieldArray);\n    item.mezok.mezo = fields;\n    result[id] = item;\n    return result;\n  }, {});\n  \n}\n\nconst sForms = $input.item.json.source.nyomtatvanyok;\n\n$input.item.json.source.nyomtatvanyok = {\n  abev: sForms.abev,\n  nyomtatvany: normalizeForm(sForms.nyomtatvany)\n}\n\nconst tForms = $input.item.json.target.nyomtatvanyok;\n\n$input.item.json.target.nyomtatvanyok = {\n  abev: tForms.abev,\n  nyomtatvany: normalizeForm(tForms.nyomtatvany)\n}\n\nreturn $input.item;"
+      },
+      "id": "1ebe6c6b-e030-444d-bf77-f2d18fddcab8",
+      "name": "Normalize forms",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const createType = (id) =>  id?.indexOf(\"-\") === -1 ? 'Alkalmazo' : 'Alkalmazott';\n\n// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nconst source = $input.item.json.source;\nconst target = $input.item.json.target;\n\n// get all the keys of item in nyomtatvany (source)\nconst sourceKeys = Object.keys(source?.nyomtatvanyok?.nyomtatvany);\nconst targetKeys = Object.keys(target?.nyomtatvanyok?.nyomtatvany);\n// get all the keys of item in nyomtatvany (target)\n\n// Find common items between the two arrays\nconst commonItems = sourceKeys.filter(item => targetKeys.includes(item));\n\n// Find items only in array1 (not in array2)\nconst uniqueToSource = sourceKeys.filter(item => !targetKeys.includes(item));\n\n// Find items only in array2 (not in array1)\nconst uniqueToTarget = targetKeys.filter(item => !sourceKeys.includes(item));\n\nconst commonForms = commonItems.map((id) => {\n  const orig = source?.nyomtatvanyok?.nyomtatvany[id];\n  const changed = target?.nyomtatvanyok?.nyomtatvany[id];\n  return {\n    id: id,\n    value: orig,\n    changedTo: changed,\n    action: 'M',\n    type: createType(id)\n  }\n});\n\nconst sourceFomrs = uniqueToSource.map((id) => {\n  const orig = source?.nyomtatvanyok?.nyomtatvany[id];\n  return {\n    id: id,\n    value: orig,\n    action: 'T',\n    type: createType(id)\n  }\n});\n\nconst targetForms = uniqueToTarget.map((id) => {\n  const changed = target?.nyomtatvanyok?.nyomtatvany[id];\n  return {\n    id: id,\n    changedTo: changed,\n    action: 'U',\n    type: createType(id)\n  }\n});\n\n$input.item.json.forms = [...commonForms, ...sourceFomrs, ...targetForms];\n\nreturn $input.item;"
+      },
+      "id": "bed8f4f0-c26f-4766-9784-b4a9775f32f3",
+      "name": "Create form diffs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        980
+      ]
+    },
+    {
+      "parameters": {
+        "path": "f70780c7-ffc6-40d8-8521-7e7a3c35ff77",
+        "formTitle": "Abev űrlap összehasonlító",
+        "formDescription": "Fel kell töltened a forrásfájlt és a végleges fájlt. Ez az eszköz összehasonlítja a fájlokat, és elküldi neked az eredményt.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Kiindulo xml",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".xml",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Valtozott xml",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".xml",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "placeholder": "Email cim",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A kérésed benyújtásra került a munkafolyamatba."
+            }
+          }
+        }
+      },
+      "id": "2b267f4a-720f-4b87-a065-28127522fbe3",
+      "name": "form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.1,
+      "position": [
+        -1080,
+        1140
+      ],
+      "webhookId": "f70780c7-ffc6-40d8-8521-7e7a3c35ff77"
     }
   ],
   "pinData": {},
   "connections": {
-    "FTP Download file": {
-      "main": [
-        [
-          {
-            "node": "FTP Move file",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Extract from File",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "FTP List files on ftp": {
-      "main": [
-        [
-          {
-            "node": "Filter only XML",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "When clicking ‘Test workflow’": {
-      "main": [
-        [
-          {
-            "node": "FTP List files on ftp",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract from File": {
-      "main": [
-        [
-          {
-            "node": "Convert XML to JSON",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Combine xml with metadata": {
-      "main": [
-        [
-          {
-            "node": "Normalize Document Structure",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Convert XML to JSON": {
       "main": [
         [
           {
-            "node": "Combine xml with metadata",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Filter only XML": {
-      "main": [
-        [
-          {
-            "node": "Limit to 2 files",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Limit to 2 files": {
-      "main": [
-        [
-          {
-            "node": "Identify Order",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Identify Order": {
-      "main": [
-        [
-          {
-            "node": "FTP Download file",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Combine xml with metadata",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normalize Document Structure": {
-      "main": [
-        [
-          {
-            "node": "Merge source target",
+            "node": "Move data to source",
             "type": "main",
             "index": 0
           }
@@ -664,18 +640,7 @@
       "main": [
         [
           {
-            "node": "Extract from File1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract from File1": {
-      "main": [
-        [
-          {
-            "node": "Normalize Mappings",
+            "node": "Extract from Mapping.csv",
             "type": "main",
             "index": 0
           }
@@ -689,33 +654,6 @@
             "node": "Merge",
             "type": "main",
             "index": 1
-          }
-        ]
-      ]
-    },
-    "Merge": {
-      "main": [
-        [
-          {
-            "node": "Generate diff",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Merge source target": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "FTP Download Mapping",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -751,7 +689,7 @@
       "main": [
         [
           {
-            "node": "FTP Upload",
+            "node": "Merge Result to single stream",
             "type": "main",
             "index": 0
           }
@@ -762,9 +700,9 @@
       "main": [
         [
           {
-            "node": "FTP Upload",
+            "node": "Merge Result to single stream",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
@@ -780,33 +718,11 @@
         ]
       ]
     },
-    "Convert to File Dolg Chnages": {
-      "main": [
-        [
-          {
-            "node": "FTP Upload",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Filter No Changes": {
       "main": [
         [
           {
             "node": "Convert to File Dolg No Chnages",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Convert to File Dolg No Chnages": {
-      "main": [
-        [
-          {
-            "node": "FTP Upload",
             "type": "main",
             "index": 0
           }
@@ -866,13 +782,215 @@
           }
         ]
       ]
+    },
+    "Compression": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File Dolg Chnages": {
+      "main": [
+        [
+          {
+            "node": "Merge Result to single stream",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Convert to File Dolg No Chnages": {
+      "main": [
+        [
+          {
+            "node": "Merge Result to single stream",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Compression",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Result to single stream": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from Mapping.csv": {
+      "main": [
+        [
+          {
+            "node": "Normalize Mappings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Start": {
+      "main": [
+        [
+          {
+            "node": "Convert XML to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Changed": {
+      "main": [
+        [
+          {
+            "node": "Convert XML to JSON1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert XML to JSON1": {
+      "main": [
+        [
+          {
+            "node": "Move data to target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move data to source": {
+      "main": [
+        [
+          {
+            "node": "Combine xml with metadata",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Move data to target": {
+      "main": [
+        [
+          {
+            "node": "Combine xml with metadata",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Rename Keys": {
+      "main": [
+        [
+          {
+            "node": "Combine xml with metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine xml with metadata": {
+      "main": [
+        [
+          {
+            "node": "Normalize forms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "FTP Download Mapping",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Generate diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize forms": {
+      "main": [
+        [
+          {
+            "node": "Create form diffs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create form diffs": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "form": {
+      "main": [
+        [
+          {
+            "node": "Extract Start",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract Changed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rename Keys",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "01470815-0d0c-4d5b-8f6e-98c3a43c5c26",
+  "versionId": "11e8f94e-e65d-40fb-bf74-c1936bee99e2",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
