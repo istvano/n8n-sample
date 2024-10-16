@@ -4,7 +4,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// map the elements to only nyomtatvany info\n// flat the multi dimensional map\n// filter only items that has munkavallalo fields (ignore adozo elements)\n\nconst json = $input.item.json;\nconst datas = json.data;\n\n//drop first element\nconst items = datas.slice(1);\n\n//take all other elements and flatten them into an array\nconst toreplace = items.map(item => {\n   return item.nyomtatvanyok.nyomtatvany;\n }).flat()\n   .filter(item => {\n     return item?.nyomtatvanyinformacio?.hasOwnProperty(\"munkavallalo\");\n}).reduce((acc,item) => {\n     const id = item.nyomtatvanyinformacio?.munkavallalo?.adoazonosito;\n     acc[id] = item;\n     return acc;\n}, {});\n\n//replace elements\nconst data = datas[0];\nconst forms = data?.nyomtatvanyok?.nyomtatvany;\n\n//iterate over all elelemnts if the data element\n// and see if we find that element in the toreplace object\nif (forms) {\n  const result =  forms.map(item => {\n    const id = item.nyomtatvanyinformacio?.munkavallalo?.adoazonosito;\n    if (id && toreplace[id]) {\n      return toreplace[id];\n    } else {\n      return item;\n    }\n  });  \n    data.nyomtatvanyok.nyomtatvany = result;\n}\n\nreturn data;"
+        "jsCode": "// map the elements to only nyomtatvany info\n// flat the multi dimensional map\n// filter only items that has munkavallalo fields (ignore adozo elements)\n\nconst json = $input.item.json;\nconst datas = json.data;\n\n//drop first element\nconst items = datas.slice(1);\n\nconst uniqueId = (o) => {\n  if (o.nyomtatvanyinformacio?.munkavallalo?.adoazonosito) {\n    return o.nyomtatvanyinformacio.munkavallalo.adoazonosito;\n  }\n  \n  return o.nyomtatvanyinformacio?.adozo?.adoszam || null;\n}\n\n//take all other elements and flatten them into an array\nconst toreplace = items.map(item => {\n   return item.nyomtatvanyok.nyomtatvany;\n }).flat()\n   .reduce((acc,item) => {\n     const id = uniqueId(item)\n     acc[id] = item;\n     return acc;\n}, {});\n\n//replace elements\nconst data = datas[0];\nconst forms = data?.nyomtatvanyok?.nyomtatvany;\n\n//iterate over all elelemnts if the data element\n// and see if we find that element in the toreplace object\nif (forms) {\n  const result =  forms.map(item => {\n    const id = uniqueId(item);\n    if (id && toreplace[id]) {\n      return toreplace[id];\n    } else {\n      return item;\n    }\n  });  \n    data.nyomtatvanyok.nyomtatvany = result;\n}\n\nreturn data;"
       },
       "id": "959e7c24-bee7-4ab7-8be8-e6fd89b4220b",
       "name": "Flat elements and Remove Adozo",
@@ -367,7 +367,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "88f299a1-2783-40e6-ad35-bc0939e766a0",
+  "versionId": "de208341-34d6-4040-81e4-159e2b49cfef",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"

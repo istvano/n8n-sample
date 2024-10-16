@@ -259,8 +259,7 @@
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.item.json;\n\nconst fields = Object.keys(elm.diff);\n\nconst diff = fields.reduce((acc,field) => {\n    const val = elm.diff[field];\n    acc[field+\"_megnevezes\"] = val?.name;\n    acc[field+\"_eredeti\"] = val?.value;\n    acc[field+\"_modositott\"] = val?.newValue;\n    acc[field+\"_kulonbseg\"] = val?.diff;\n    return acc;\n}, {});  \n\ndelete elm.diff;\n\nreturn { ...elm, ...diff };\n"
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nfunction isEmptyObject(obj) {\n  // Check if it's an object and not null, then check if it has any keys\n  return obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === 0;\n}\n\nconst result = $input.all().flatMap(item => {\n  const elm = item.json;\n  const header = {\n    kiindulo: elm['kiindulo'],\n    valtozasok: elm['valtozasok'],\n    akcio: elm['akcio'],\n    tipus: elm['tipus'],\n    adoszam: elm['id']\n  }\n  const mapped = !isEmptyObject(elm.diff) ? Object.entries(elm.diff).map(([key, value]) => {\n       return Object.assign({}, header, {\n         'mezo_azonosito': key,\n         'mezo_megnevezes': value['name'],\n         'mezo_eredeti': value['value'],\n         'mezo_modositott': value['newValue'],\n         'mezo_kulonbseg': value['diff']\n       })}) : Object.assign({}, header, {});\n  \n  return mapped;\n\n});\n\nreturn result;\n"
       },
       "id": "84ec3567-5035-4e07-bfa5-e5be4650256c",
       "name": "Convert DIFF to CSV structure",
@@ -306,7 +305,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst items = $input.all();\n\nconst fields = items.reduce((acc, item) => {\n  Object.keys(item.json.diff).forEach(key => acc.add(key));\n  return acc;\n}, new Set());\n\nconst fieldArray = Array.from(fields);\n\nconst result = items.map(item => {\n\n  const diff = fieldArray.reduce((acc,field) => {\n      const val = item.json.diff[field];      \n      acc[field+\"_megnevezes\"] = val?.name;\n      acc[field+\"_eredeti\"] = val?.value ? val?.value : '';\n      acc[field+\"_modositott\"] = val?.newValue ? val?.newValue : '';\n      acc[field+\"_kulonbseg\"] = val?.diff ? val?.diff : '';\n      return acc;\n  }, {});\n  \n  delete item.json.diff;\n  return {\n    ...item.json, ...diff\n  };\n});\n\nreturn result;"
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nfunction isEmptyObject(obj) {\n  // Check if it's an object and not null, then check if it has any keys\n  return obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === 0;\n}\n\nconst result = $input.all().flatMap(item => {\n  const elm = item.json;\n  const header = {\n    kiindulo: elm['kiindulo'],\n    valtozasok: elm['valtozasok'],\n    akcio: elm['akcio'],\n    tipus: elm['tipus'],\n    adoszam: elm['id']\n  }\n  const mapped = !isEmptyObject(elm.diff) ? Object.entries(elm.diff).map(([key, value]) => {\n       return Object.assign({}, header, {\n         'mezo_azonosito': key,\n         'mezo_megnevezes': value['name'],\n         'mezo_eredeti': value['value'],\n         'mezo_modositott': value['newValue'],\n         'mezo_kulonbseg': value['diff']\n       })}) : Object.assign({}, header, {});\n  \n  return mapped;\n\n});\n\nreturn result;\n"
       },
       "id": "b1b1b3d6-cf37-416d-a25d-db86bb1915cf",
       "name": "Convert DIFF to CSV structure1",
@@ -534,21 +533,6 @@
     },
     {
       "parameters": {
-        "mode": "combine",
-        "combineBy": "combineByPosition",
-        "options": {}
-      },
-      "id": "10f0a909-0885-442b-ba18-dd8f9407436a",
-      "name": "Merge",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        1080,
-        1000
-      ]
-    },
-    {
-      "parameters": {
         "mode": "runOnceForEachItem",
         "jsCode": "function extractUniqueId(data) {\n    // Safely access adozo.adoszam and munkavallalo.adoazonosito\n    const companyTaxNumber = data?.adozo?.adoszam;\n    const employeeTaxNumber = data?.munkavallalo?.adoazonosito;\n\n    // Check if both values exist\n    if (companyTaxNumber && employeeTaxNumber) {\n        return companyTaxNumber + \"-\" + employeeTaxNumber;\n    } else if (companyTaxNumber) {\n      return companyTaxNumber;\n    } else {\n        return null; // Return null or another default value if any part is missing\n    }\n}\n\nfunction normalizeFormFields(fieldArray) {\n  const result = fieldArray.reduce(function (acc, item) {    \n    if (item.eazon && item._) {\n       acc[item.eazon] = item._;      \n    }\n    return acc;\n  }, {})\n  return result;\n}\n\nfunction normalizeForm(data) {\n\n  return data.reduce(function (result, item) {\n    const info = item.nyomtatvanyinformacio;\n    const fieldArray = item.mezok?.mezo;\n    const id = extractUniqueId(info)\n    const fields = normalizeFormFields(fieldArray);\n    item.mezok.mezo = fields;\n    result[id] = item;\n    return result;\n  }, {});\n  \n}\n\nconst sForms = $input.item.json.source.nyomtatvanyok;\n\n$input.item.json.source.nyomtatvanyok = {\n  abev: sForms.abev,\n  nyomtatvany: normalizeForm(sForms.nyomtatvany)\n}\n\nconst tForms = $input.item.json.target.nyomtatvanyok;\n\n$input.item.json.target.nyomtatvanyok = {\n  abev: tForms.abev,\n  nyomtatvany: normalizeForm(tForms.nyomtatvany)\n}\n\nreturn $input.item;"
       },
@@ -621,6 +605,21 @@
         1140
       ],
       "webhookId": "f70780c7-ffc6-40d8-8521-7e7a3c35ff77"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "10f0a909-0885-442b-ba18-dd8f9407436a",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1080,
+        1000
+      ]
     }
   ],
   "pinData": {},
@@ -931,17 +930,6 @@
         ]
       ]
     },
-    "Merge": {
-      "main": [
-        [
-          {
-            "node": "Generate diff",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Normalize forms": {
       "main": [
         [
@@ -984,13 +972,24 @@
           }
         ]
       ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Generate diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "11e8f94e-e65d-40fb-bf74-c1936bee99e2",
+  "versionId": "d6fcc4b0-6bfa-4eb4-97d7-ac3c30b23d8b",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
