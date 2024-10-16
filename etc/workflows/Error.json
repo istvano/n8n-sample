@@ -3,36 +3,37 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "f4e97917-d159-4bd1-8c6c-1db91d318d71",
+      "id": "e9bd6555-1019-4ac3-92e5-2928cf608852",
       "name": "Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
-        1180,
-        520
+        780,
+        380
       ]
     },
     {
       "parameters": {
-        "fromEmail": "error@localhost.test",
-        "toEmail": "istvan_o@outlook.com",
-        "subject": "Hiba tortent",
-        "options": {
-          "attachments": "={{ $json.execution }}"
-        }
+        "fromEmail": "workflow@n8n.localhost.local",
+        "toEmail": "error@hrrent.hu",
+        "subject": "=🚨 Hiba a workflow-ban: {{ $json.workflow.name }}",
+        "emailFormat": "both",
+        "text": "=⚠️ A(z) {{$json[\"workflow\"][\"name\"]}} munkafolyamat futása sikertelen volt!\nAz alábbi linken találja a végrehajtást: {{ $json.execution.url }}\n\nHibajelentés a(z) {{ $json.execution.lastNodeExecuted }} csomópontból: {{ $json.execution.error.message }}\n\n{{ $json.execution.error.stack }}",
+        "html": "=⚠️ A(z) {{$json[\"workflow\"][\"name\"]}} munkafolyamat futása sikertelen volt!\nAz alábbi linken találja a végrehajtást: {{ $json.execution.url }}\n\nHibajelentés a(z) {{ $json.execution.lastNodeExecuted }} csomópontból: {{ $json.execution.error.message }}\n\n{{ $json.execution.error.stack }}",
+        "options": {}
       },
-      "id": "34410d8b-3110-4b45-a016-6c729b270902",
+      "id": "6c3aba1e-3647-46ae-a359-61818836be0e",
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2,
+      "typeVersion": 2.1,
       "position": [
-        1400,
-        520
+        1000,
+        380
       ],
       "credentials": {
         "smtp": {
-          "id": "2",
-          "name": "SMTP account"
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
         }
       }
     }
@@ -52,11 +53,18 @@
     }
   },
   "active": false,
-  "settings": {},
-  "versionId": "b2e8b9a8-c31c-431d-8fbc-47de43dac99c",
-  "id": "2",
-  "meta": {
-    "instanceId": "85e4aea19de2d285c91b909a8dcd3d895ad511f5c888998471db1734c996c1ee"
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "callerPolicy": "any",
+    "executionTimeout": -1,
+    "errorWorkflow": "FOmjm0RmctLvwKdz"
   },
+  "versionId": "84b158c9-0a43-4275-87e3-8fa96ebd4f15",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
+  },
+  "id": "FOmjm0RmctLvwKdz",
   "tags": []
 }

@@ -127,7 +127,7 @@ $(eval $(call defw,IP_ADDRESS,$(IP_ADDRESS)))
 $(eval $(call defw,ENV,$(ENV)))
 $(eval $(call defw,DOCKER,docker))
 $(eval $(call defw,CURL,curl))
-$(eval $(call defw,COMPOSE,docker-compose))
+$(eval $(call defw,COMPOSE,docker compose))
 $(eval $(call defw,UNAME,$(UNAME_S)-$(UNAME_P)))
 
 
