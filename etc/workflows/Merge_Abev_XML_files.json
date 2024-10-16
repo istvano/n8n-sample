@@ -3,20 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// map the elements to only nyomtatvany info\n// flat the multi dimensional map\n// filter only items that has munkavallalo fields (ignore adozo elements)\n\nconst json = $input.item.json;\nconst datas = json.data;\n\n//drop first element\nconst items = datas.slice(1);\n\nconst uniqueId = (o) => {\n  if (o.nyomtatvanyinformacio?.munkavallalo?.adoazonosito) {\n    return o.nyomtatvanyinformacio.munkavallalo.adoazonosito;\n  }\n  \n  return o.nyomtatvanyinformacio?.adozo?.adoszam || null;\n}\n\n//take all other elements and flatten them into an array\nconst toreplace = items.map(item => {\n   return item.nyomtatvanyok.nyomtatvany;\n }).flat()\n   .reduce((acc,item) => {\n     const id = uniqueId(item)\n     acc[id] = item;\n     return acc;\n}, {});\n\n//replace elements\nconst data = datas[0];\nconst forms = data?.nyomtatvanyok?.nyomtatvany;\n\n//iterate over all elelemnts if the data element\n// and see if we find that element in the toreplace object\nif (forms) {\n  const result =  forms.map(item => {\n    const id = uniqueId(item);\n    if (id && toreplace[id]) {\n      return toreplace[id];\n    } else {\n      return item;\n    }\n  });  \n    data.nyomtatvanyok.nyomtatvany = result;\n}\n\nreturn data;"
-      },
-      "id": "959e7c24-bee7-4ab7-8be8-e6fd89b4220b",
-      "name": "Flat elements and Remove Adozo",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -1320,
-        1080
-      ]
-    },
-    {
-      "parameters": {
         "keys": {
           "key": [
             {
@@ -237,6 +223,20 @@
           "name": "Local SMTP account"
         }
       }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// map the elements to only nyomtatvany info\n// flat the multi dimensional map\n// filter only items that has munkavallalo fields (ignore adozo elements)\n\nconst json = $input.item.json;\nconst datas = json.data;\n\n//drop first element\nconst items = datas.slice(1);\n\nconst uniqueId = (o) => {\n  if (o.nyomtatvanyinformacio?.munkavallalo?.adoazonosito) {\n    return o.nyomtatvanyinformacio.munkavallalo.adoazonosito;\n  }\n  \n  return o.nyomtatvanyinformacio?.adozo?.adoszam || null;\n}\n\n//take all other elements and flatten them into an array\nconst toreplace = items.map(item => {\n   return item.nyomtatvanyok.nyomtatvany;\n }).flat()\n   .reduce((acc,item) => {\n     const id = uniqueId(item)\n     acc[id] = item;\n     return acc;\n}, {});\n\n//replace elements\nconst data = datas[0];\nconst forms = data?.nyomtatvanyok?.nyomtatvany;\n\n//iterate over all elelemnts if the data element\n// and see if we find that element in the toreplace object\nif (forms) {\n\n  //process elements exists in the source document\n  const result =  forms.map(item => {\n    const id = uniqueId(item);\n    if (id && toreplace[id]) {\n      const o = toreplace[id];\n      const res = { ...o };\n      o.done = true;\n      return res;\n    } else {\n      return item;\n    }\n  });\n\n  const newItems = toreplace ? Object.entries(toreplace)\n          .filter(([key, value]) => value.done !== true).map(([key, value]) => value) : [];\n  \n    data.nyomtatvanyok.nyomtatvany = [...result, ...newItems];;\n}\n\nreturn data;"
+      },
+      "id": "959e7c24-bee7-4ab7-8be8-e6fd89b4220b",
+      "name": "Process elements",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1320,
+        1080
+      ]
     }
   ],
   "pinData": {},
@@ -289,7 +289,7 @@
       "main": [
         [
           {
-            "node": "Flat elements and Remove Adozo",
+            "node": "Process elements",
             "type": "main",
             "index": 0
           }
@@ -312,17 +312,6 @@
         [
           {
             "node": "Aggregate",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Flat elements and Remove Adozo": {
-      "main": [
-        [
-          {
-            "node": "XML",
             "type": "main",
             "index": 0
           }
@@ -361,13 +350,24 @@
           }
         ]
       ]
+    },
+    "Process elements": {
+      "main": [
+        [
+          {
+            "node": "XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "de208341-34d6-4040-81e4-159e2b49cfef",
+  "versionId": "bd71af3c-c1e2-49a8-a52e-d3c62012b70a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
