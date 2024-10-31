@@ -1,5 +1,5 @@
 {
-  "name": "Merge Abev XML files",
+  "name": "Merge Abev files",
   "nodes": [
     {
       "parameters": {
@@ -17,19 +17,19 @@
         },
         "additionalOptions": {}
       },
-      "id": "831064b9-16d8-4185-9522-17a129dd465e",
+      "id": "0ad67def-9b6a-4855-84cf-83dee3df11f6",
       "name": "Rename Keys",
       "type": "n8n-nodes-base.renameKeys",
       "typeVersion": 1,
       "position": [
-        -2820,
-        1080
+        800,
+        460
       ]
     },
     {
       "parameters": {
-        "path": "f70780c7-ffc6-40d8-8521-7e7a3c35ff77",
-        "formTitle": "Abev űrlap Összefésülés",
+        "path": "a76c6dcd-2112-40db-afac-c2ae6643bc53",
+        "formTitle": "Abev űrlap összefésülés",
         "formDescription": "Fel kell töltened egy XML fájlt, valamint egy vagy több további XML fájlt, amelyek változásokat tartalmaznak. Ez a munkafolyamat egyesíti az összes változást a forrás XML fájlba a további fájlokból.",
         "formFields": {
           "values": [
@@ -62,13 +62,13 @@
           }
         }
       },
-      "id": "0103cf73-34f3-4f27-a4c0-6107122e25c2",
+      "id": "a0ec3255-c7d0-4305-9526-fa9fa32da59f",
       "name": "form",
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.1,
       "position": [
-        -3080,
-        1080
+        540,
+        460
       ],
       "webhookId": "f70780c7-ffc6-40d8-8521-7e7a3c35ff77"
     },
@@ -79,13 +79,13 @@
           "includeBinary": true
         }
       },
-      "id": "3691f9cc-11aa-4454-b513-056c8e043521",
+      "id": "7f89bfcd-d7da-4486-9ddb-67a2e9a8e613",
       "name": "Split Out",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
       "position": [
-        -2300,
-        1080
+        1320,
+        460
       ]
     },
     {
@@ -97,13 +97,13 @@
           "keepSource": "json"
         }
       },
-      "id": "b4516722-ebfa-4e3c-99b7-542570e66afd",
+      "id": "670c05cc-abf2-4bf9-8446-80ad073ab49d",
       "name": "Extract Start",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        -2040,
-        1080
+        1580,
+        460
       ]
     },
     {
@@ -111,13 +111,13 @@
         "aggregate": "aggregateAllItemData",
         "options": {}
       },
-      "id": "584b114c-7338-4f54-a48e-be2a17c759f5",
+      "id": "1166e8be-70b9-415c-82e6-27456ad9472b",
       "name": "Aggregate",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        -1580,
-        1080
+        2040,
+        460
       ]
     },
     {
@@ -125,13 +125,13 @@
         "mode": "runOnceForEachItem",
         "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n//$input.item.json.files = [];\nconst arr = [];\narr.push($input.item.json.sourceXml?.filename);\n\nconst files = $input.item.json.targetXml?.map(item => {\n    return item.filename;\n}).sort();\n\nconst filesOrdered =  [...arr, ...files];\n\nconst findElement = (binary) => (filename) => {\n  return Object.keys(binary).find((item) => {\n    const file = binary[item];\n    return file.fileName === filename;\n  })\n}\n\n\nconst result = filesOrdered.map(findElement($input.item.binary));\n\n$input.item.json.binaries = result;\n\nreturn $input.item;"
       },
-      "id": "73c73902-6b0e-44e6-afae-8c3de83cedc3",
+      "id": "0a5fa499-97bb-483a-bdfe-cf8d64464d56",
       "name": "Extract binary object names",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2560,
-        1080
+        1060,
+        460
       ]
     },
     {
@@ -141,13 +141,13 @@
           "mergeAttrs": false
         }
       },
-      "id": "e0a01321-ef8a-417b-ac42-6c367b973754",
+      "id": "03781ea4-d291-4d76-8d4b-b7e3b0742a2c",
       "name": "Convert XML to JSON",
       "type": "n8n-nodes-base.xml",
       "typeVersion": 1,
       "position": [
-        -1800,
-        1080
+        1820,
+        460
       ]
     },
     {
@@ -157,13 +157,13 @@
           "attrkey": "$"
         }
       },
-      "id": "9feb2e64-40b0-4777-9687-2b486320137b",
+      "id": "8e9b7d3e-b6e7-4ddc-9e53-40ae2cb8dc59",
       "name": "XML",
       "type": "n8n-nodes-base.xml",
       "typeVersion": 1,
       "position": [
-        -1060,
-        1080
+        2560,
+        460
       ]
     },
     {
@@ -174,13 +174,13 @@
           "fileName": "=merged-{{ $('form').item.json[\"Kiindulo xml\"].filename }}"
         }
       },
-      "id": "4e5e68d0-e6ce-4494-9846-e7a7629b7f8a",
+      "id": "bc42335c-cbb7-4b39-b4f2-66b437d4f033",
       "name": "Convert to File",
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        -740,
-        1080
+        2880,
+        460
       ]
     },
     {
@@ -188,20 +188,20 @@
         "operation": "compress",
         "fileName": "={{ $binary.data.fileName }}.zip"
       },
-      "id": "69644698-70f6-4f19-aea6-37fdcec588c0",
+      "id": "a1d2250f-1985-4145-b847-06154f12f3f4",
       "name": "Compression",
       "type": "n8n-nodes-base.compression",
       "typeVersion": 1.1,
       "position": [
-        -440,
-        1080
+        3180,
+        460
       ]
     },
     {
       "parameters": {
-        "fromEmail": "workflow@n8n.localhost.local",
+        "fromEmail": "noreply@hr-group.hu",
         "toEmail": "={{ $('form').first().json.Email }}",
-        "subject": "Abev xml merge eredmenyek",
+        "subject": "Abev XML összefésülés eredmények",
         "emailFormat": "text",
         "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a ZIP fájlt az e-mailben, amely tartalmazza az XML file-t.",
         "options": {
@@ -209,18 +209,18 @@
           "attachments": "=data"
         }
       },
-      "id": "523c641e-8340-4c47-b783-8ae8ce789607",
+      "id": "0d46a8ae-eaba-4fd6-879c-37194a18c8f0",
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        -160,
-        1080
+        3460,
+        460
       ],
       "credentials": {
         "smtp": {
-          "id": "nF8jekF8CRIcIClT",
-          "name": "Local SMTP account"
+          "id": "HvaFmlUrvL4Xz7Re",
+          "name": "SMTP account"
         }
       }
     },
@@ -229,34 +229,34 @@
         "mode": "runOnceForEachItem",
         "jsCode": "// map the elements to only nyomtatvany info\n// flat the multi dimensional map\n// filter only items that has munkavallalo fields (ignore adozo elements)\n\nconst json = $input.item.json;\nconst datas = json.data;\n\n//drop first element\nconst items = datas.slice(1);\n\nconst uniqueId = (o) => {\n  if (o.nyomtatvanyinformacio?.munkavallalo?.adoazonosito) {\n    return o.nyomtatvanyinformacio.munkavallalo.adoazonosito;\n  }\n  \n  return o.nyomtatvanyinformacio?.adozo?.adoszam || null;\n}\n\n//take all other elements and flatten them into an array\nconst toreplace = items.map(item => {\n   return item.nyomtatvanyok.nyomtatvany;\n }).flat()\n   .reduce((acc,item) => {\n     const id = uniqueId(item)\n     acc[id] = item;\n     return acc;\n}, {});\n\n//replace elements\nconst data = datas[0];\nconst forms = data?.nyomtatvanyok?.nyomtatvany;\n\n//iterate over all elelemnts if the data element\n// and see if we find that element in the toreplace object\nif (forms) {\n\n  //process elements exists in the source document\n  const result =  forms.map(item => {\n    const id = uniqueId(item);\n    if (id && toreplace[id]) {\n      const o = toreplace[id];\n      const res = { ...o };\n      o.done = true;\n      return res;\n    } else {\n      return item;\n    }\n  });\n\n  const newItems = toreplace ? Object.entries(toreplace)\n          .filter(([key, value]) => value.done !== true).map(([key, value]) => value) : [];\n  \n    data.nyomtatvanyok.nyomtatvany = [...result, ...newItems];;\n}\n\nreturn data;"
       },
-      "id": "959e7c24-bee7-4ab7-8be8-e6fd89b4220b",
+      "id": "5f8eaa63-a636-49ed-b7ff-31b8526d1dc8",
       "name": "Process elements",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1320,
-        1080
+        2300,
+        460
       ]
     }
   ],
   "pinData": {},
   "connections": {
-    "form": {
+    "Rename Keys": {
       "main": [
         [
           {
-            "node": "Rename Keys",
+            "node": "Extract binary object names",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Rename Keys": {
+    "form": {
       "main": [
         [
           {
-            "node": "Extract binary object names",
+            "node": "Rename Keys",
             "type": "main",
             "index": 0
           }
@@ -329,22 +329,22 @@
         ]
       ]
     },
-    "Compression": {
+    "Convert to File": {
       "main": [
         [
           {
-            "node": "Send Email",
+            "node": "Compression",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Convert to File": {
+    "Compression": {
       "main": [
         [
           {
-            "node": "Compression",
+            "node": "Send Email",
             "type": "main",
             "index": 0
           }
@@ -363,15 +363,15 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "bd71af3c-c1e2-49a8-a52e-d3c62012b70a",
+  "versionId": "e1dca993-8167-4ba1-9ac4-91089864bc92",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
+    "instanceId": "7cfddeb6999f34b6da92291d1629f587d828f7bfb858bf018672cb83a32e762c"
   },
-  "id": "KHgSH7oJOOaraBY0",
+  "id": "Z9DwObcTIQ0aDCgf",
   "tags": []
 }

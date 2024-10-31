@@ -65,7 +65,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.first();\n\nconst metadata = {\n  sourceFile: elm.json.sourceXml?.filename,\n  targetFile: elm.json.targetXml?.filename\n}\n\n\nconst result = elm.json.forms.map((item) => {\n  const val = item.changedTo ? item.changedTo : item.value;\n  let csvItem = {\n    kiindulo: metadata.sourceFile,\n    valtozasok: metadata.targetFile,\n    akcio: item.action,\n    tipus: item.type,\n    id: item.id,    \n    adozo_adoszam: val?.nyomtatvanyinformacio?.adozo?.adoszam,\n    munkavallalo_adoszam: val?.nyomtatvanyinformacio?.munkavallalo?.adoazonosito\n  };\n\n  csvItem.diff = item.diff;\n  \n  return csvItem;\n});\n\nreturn result;\n"
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.first();\n\nconst metadata = {\n  sourceFile: elm.json.sourceXml?.filename,\n  targetFile: elm.json.targetXml?.filename\n}\n\n\nconst result = elm.json.forms.map((item) => {\n  const val = item.changedTo ? item.changedTo : item.value;\n  let csvItem = {\n    kiindulo: metadata.sourceFile,\n    valtozasok: metadata.targetFile,\n    akcio: item.action,\n    tipus: item.type,\n    id: item.id,    \n    adozo_adoszam: val?.nyomtatvanyinformacio?.adozo?.adoszam,\n    munkavallalo_adoszam: val?.nyomtatvanyinformacio?.munkavallalo?.adoazonosito,\n    nev: val?.nyomtatvanyinformacio?.munkavallalo?.nev\n  };\n\n  csvItem.diff = item.diff;\n  \n  return csvItem;\n});\n\nreturn result;\n"
       },
       "id": "09d464da-c05c-43d3-9fb1-5f212523a4db",
       "name": "Convert to CSV structure",
@@ -259,8 +259,7 @@
     },
     {
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst elm = $input.item.json;\n\nconst fields = Object.keys(elm.diff);\n\nconst diff = fields.reduce((acc,field) => {\n    const val = elm.diff[field];\n    acc[field+\"_megnevezes\"] = val?.name;\n    acc[field+\"_eredeti\"] = val?.value;\n    acc[field+\"_modositott\"] = val?.newValue;\n    acc[field+\"_kulonbseg\"] = val?.diff;\n    return acc;\n}, {});  \n\ndelete elm.diff;\n\nreturn { ...elm, ...diff };\n"
+        "jsCode": "const pageMap = new Map([\n  [\"A\", \"2408M\"],\n  [\"B\", \"2408M-04\"],\n  [\"C\", \"2408M-05\"],\n  [\"D\", \"2408M-06\"],\n  [\"E\", \"2408M-07\"],\n  [\"F\", \"2408M-08\"],\n  [\"G\", \"2408M-09\"],\n  [\"H\", \"2408M-09-01\"],\n  [\"I\", \"2408M-09-02\"],\n  [\"J\", \"2408M-10\"],\n  [\"K\", \"2408M-11\"],\n  [\"L\", \"2408M-12\"]\n]);\n\nfunction getSettingCharacter(input) {\n  // Check if the string has a character at the second position\n  if (input && input.length > 1 && /[a-zA-Z]/.test(input[1])) {\n    return input[1].toUpperCase(); // Uppercase and return it if it's alphabetic\n  }\n  // Return an empty string if no alphabetic character is found at the second position\n  return \"\";\n}\n\n// Function to look up a value by key\nfunction safeLookup(ev, pageMap) {\n  const key = getSettingCharacter(ev);\n  return pageMap.has(key) ? pageMap.get(key) : \"\";\n}\n\nfunction isEmptyObject(obj) {\n  // Check if it's an object and not null, then check if it has any keys\n  return obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === 0;\n}\n\nconst result = $input.all().flatMap(item => {\n  const elm = item.json;\n  const header = {\n    kiindulo: elm['kiindulo'],\n    valtozasok: elm['valtozasok'],\n    akcio: elm['akcio'],\n    tipus: elm['tipus'],\n    adoszam: elm['adozo_adoszam'],\n    adoazonosito: elm['munkavallalo_adoszam'],\n    nev: elm['nev']    \n  }\n  const mapped = !isEmptyObject(elm.diff) ? Object.entries(elm.diff).map(([key, value]) => {\n       return Object.assign({}, header, {\n         'mezo_azonosito': key,\n         'mezo_lap': safeLookup(key, pageMap),\n         'mezo_megnevezes': value['name'],\n         'mezo_eredeti': value['value'],\n         'mezo_modositott': value['newValue'],\n         'mezo_kulonbseg': value['diff']\n       })}) : Object.assign({}, header, {});\n  \n  return mapped;\n\n});\n\nreturn result;\n"
       },
       "id": "d7fa9be3-9642-4b8c-8ec7-345a95f7915f",
       "name": "Convert DIFF to CSV structure",
@@ -306,7 +305,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nconst items = $input.all();\n\nconst fields = items.reduce((acc, item) => {\n  Object.keys(item.json.diff).forEach(key => acc.add(key));\n  return acc;\n}, new Set());\n\nconst fieldArray = Array.from(fields);\n\nconst result = items.map(item => {\n\n  const diff = fieldArray.reduce((acc,field) => {\n      const val = item.json.diff[field];      \n      acc[field+\"_megnevezes\"] = val?.name;\n      acc[field+\"_eredeti\"] = val?.value ? val?.value : '';\n      acc[field+\"_modositott\"] = val?.newValue ? val?.newValue : '';\n      acc[field+\"_kulonbseg\"] = val?.diff ? val?.diff : '';\n      return acc;\n  }, {});\n  \n  delete item.json.diff;\n  return {\n    ...item.json, ...diff\n  };\n});\n\nreturn result;"
+        "jsCode": "const pageMap = new Map([\n  [\"A\", \"2408M\"],\n  [\"B\", \"2408M-04\"],\n  [\"C\", \"2408M-05\"],\n  [\"D\", \"2408M-06\"],\n  [\"E\", \"2408M-07\"],\n  [\"F\", \"2408M-08\"],\n  [\"G\", \"2408M-09\"],\n  [\"H\", \"2408M-09-01\"],\n  [\"I\", \"2408M-09-02\"],\n  [\"J\", \"2408M-10\"],\n  [\"K\", \"2408M-11\"],\n  [\"L\", \"2408M-12\"]\n]);\n\nfunction getSettingCharacter(input) {\n  // Check if the string has a character at the second position\n  if (input.length > 1 && /[a-zA-Z]/.test(input[1])) {\n    return input[1].toUpperCase(); // Uppercase and return it if it's alphabetic\n  }\n  // Return an empty string if no alphabetic character is found at the second position\n  return \"\";\n}\n\n// Function to look up a value by key\nfunction safeLookup(ev, pageMap) {\n  const key = getSettingCharacter(ev);\n  return pageMap.has(key) ? pageMap.get(key) : \"\";\n}\n\nfunction isEmptyObject(obj) {\n  // Check if it's an object and not null, then check if it has any keys\n  return obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === 0;\n}\n\nconst result = $input.all().flatMap(item => {\n  const elm = item.json;\n  const header = {\n    kiindulo: elm['kiindulo'],\n    valtozasok: elm['valtozasok'],\n    akcio: elm['akcio'],\n    tipus: elm['tipus'],\n    adoszam: elm['id'],\n    adoszam: elm['adozo_adoszam'],\n    adoazonosito: elm['munkavallalo_adoszam'],\n    nev: elm['nev']\n  }\n  const mapped = !isEmptyObject(elm.diff) ? Object.entries(elm.diff).map(([key, value]) => {\n       return Object.assign({}, header, {\n         'mezo_azonosito': key,\n         'mezo_lap': safeLookup(key, pageMap),\n         'mezo_megnevezes': value['name'],\n         'mezo_eredeti': value['value'],\n         'mezo_modositott': value['newValue'],\n         'mezo_kulonbseg': value['diff']\n       })}) : Object.assign({}, header, {});\n  \n  return mapped;\n\n});\n\nreturn result;\n"
       },
       "id": "c3693826-c161-46ca-a447-bb523892beda",
       "name": "Convert DIFF to CSV structure1",
@@ -343,19 +342,6 @@
       "position": [
         1560,
         680
-      ]
-    },
-    {
-      "parameters": {
-        "numberInputs": 4
-      },
-      "id": "dc3c89c3-269c-4b07-8c2e-43b9dd04c8f0",
-      "name": "Merge Result to single stream",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        1280,
-        660
       ]
     },
     {
@@ -621,6 +607,79 @@
         620
       ],
       "webhookId": "f70780c7-ffc6-40d8-8521-7e7a3c35ff77"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "29372dd5-c6dd-4d1f-8909-8f3c9ba44e34",
+              "leftValue": "={{ $json.akcio }}",
+              "rightValue": "T",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "c942acc5-738c-46ee-a8ab-bbf6a12632d5",
+              "leftValue": "={{ $json.akcio }}",
+              "rightValue": "U",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "id": "31c9085b-f934-480e-a707-61d86e050c58",
+      "name": "Filter Changes1",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.1,
+      "position": [
+        540,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "fileName": "={{ $json.kiindulo }} _{{ $json.valtozasok }}-alkalmazott-toroltuj.csv"
+        }
+      },
+      "id": "917c6127-cdd8-47c6-a31c-d29c561e6c48",
+      "name": "Convert to File Dolg Chnages1",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        820,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "id": "dc3c89c3-269c-4b07-8c2e-43b9dd04c8f0",
+      "name": "Merge Result to single stream",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1280,
+        660
+      ]
     }
   ],
   "pinData": {},
@@ -801,6 +860,11 @@
             "node": "Filter No Changes",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Filter Changes1",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -821,17 +885,6 @@
         [
           {
             "node": "Compression",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Merge Result to single stream": {
-      "main": [
-        [
-          {
-            "node": "Code",
             "type": "main",
             "index": 0
           }
@@ -984,13 +1037,46 @@
           }
         ]
       ]
+    },
+    "Filter Changes1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File Dolg Chnages1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Result to single stream": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File Dolg Chnages1": {
+      "main": [
+        [
+          {
+            "node": "Merge Result to single stream",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "9d871a53-3406-434e-bcbb-987ad77cffdb",
+  "versionId": "32cdf028-2f33-44d9-b570-ef03042cd1c5",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "7cfddeb6999f34b6da92291d1629f587d828f7bfb858bf018672cb83a32e762c"
