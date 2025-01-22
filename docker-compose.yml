@@ -77,6 +77,7 @@ x-shared: &shared
     - REDIS_HOST
     - REDIS_PORT
     - GOOGLE_MAPS_API_KEY
+    - PDF_PROCESSOR_API_KEY
   links:
     - postgres
     - redis
@@ -106,6 +107,24 @@ services:
     restart: always
     ports:
       - 127.0.0.1:5540:5540
+
+  pdfprocessor:
+    image: stirlingtools/stirling-pdf:latest
+    ports:
+      - 127.0.0.1:8080:8080
+    volumes:
+      - ./data/pdf/trainingData:/usr/share/tessdata # Required for extra OCR languages
+      - ./data/pdf/configs:/configs
+      - ./data/pdf/customFiles:/customFiles/
+      - ./data/pdf/logs:/logs/
+      - ./data/pdf/pipeline:/pipeline/
+    environment:
+      - DOCKER_ENABLE_SECURITY=true
+      - SECURITY_ENABLE_LOGIN=true
+      - SECURITY_INITIALLOGIN_USERNAME
+      - SECURITY_INITIALLOGIN_PASSWORD
+      - LANGS="en_GB,hu"
+      - ALLOW_GOOGLE_VISIBILITY=false
 
   postgres:
     image: postgres:16
@@ -172,7 +191,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.52.2
+        TAG: 1.74.3
     ports:
       - 127.0.0.1:5678:5678
     healthcheck:
@@ -185,7 +204,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.52.2
+        TAG: 1.74.3
     command: "worker --concurrency=30"
     depends_on:
       - n8n
@@ -200,7 +219,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.52.2
+        TAG: 1.74.3
     command: webhook
     healthcheck:
       test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
