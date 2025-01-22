@@ -1,0 +1,375 @@
+{
+  "name": "Process A1",
+  "nodes": [
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "fileName"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5abc7936-fa05-4c85-82f4-3f573f20e221",
+      "name": "Sort Pages",
+      "type": "n8n-nodes-base.sort",
+      "position": [
+        1040,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://pdfprocessor:8080/api/v1/convert/pdf/img",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env['PDF_PROCESSOR_API_KEY']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "fileInput",
+              "inputDataFieldName": "File"
+            },
+            {
+              "name": "imageFormat",
+              "value": "jpg"
+            },
+            {
+              "name": "singleOrMultiple",
+              "value": "multiple"
+            },
+            {
+              "name": "dpi",
+              "value": "300"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf9bff8b-8922-492f-8896-fe6217902b3a",
+      "name": "Split PDF into Images",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        280,
+        0
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {},
+      "id": "fa0724d5-16d1-44db-8b16-f8bc641cc348",
+      "name": "Extract Zip File",
+      "type": "n8n-nodes-base.compression",
+      "position": [
+        540,
+        0
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "let results = [];\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                data: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "id": "39bf8c4c-15f6-435b-9b7a-b7092614d88a",
+      "name": "Images To List",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        800,
+        0
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## 3. Summarize the information\n\n",
+        "height": 814,
+        "width": 720,
+        "color": 7
+      },
+      "id": "f39815ac-597f-441d-8b34-9a48267681e7",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1880,
+        -280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "text",
+              "renameField": true,
+              "outputFieldName": "pages"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ab54d959-50e1-4e5a-ab8f-e38bddffb067",
+      "name": "Combine All Pages",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [
+        1980,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "text": "= {{ $json.pages.join('---') }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"array\",\n  \"items\": {\n\t\"type\": \"object\",\n\t\"properties\": {\n      \"familyName\": { \"type\": \"string\" },\n      \"firstName\": { \"type\": \"string\" },\n      \"birthName\": { \"type\": \"string\" },\n      \"birthDate\": { \"type\": \"date\" },\n      \"NInumber\": { \"type\": \"string\" },\n      \"memberCountry\": { \"type\": \"string\" },\n      \"startDay\": { \"type\": \"date\" },\n      \"lastDay\": { \"type\": \"date\" },\n      \"sendingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyCountry\": { \"type\": \"string\" }\n\t}\n  }}",
+        "options": {
+          "systemPromptTemplate": "This document contains an A1 form that certifies the social security legislation which applies to a posted worker and confirms that this person has no obligations to pay contributions in another Member State. I need you to gather information about this form. \nMake sure when a country field is extracted, you turn the country into an ISO country code like AUT DEU HUN.\n\nI need the following fields extracted:\n1.2 family name\n1.3 first name\n1.4 birth name\n1.5 birth date\n1.1 NI number\n2.1 member country\n2.2 start day\n2.3 last day\n4.3 sending company  name\n5.1 or 5.2 employing company information that contains a company name and also a country of that company. These two fields must be separated."
+        }
+      },
+      "id": "cdadc1a9-1656-40dd-a9dc-03ea86bb57bf",
+      "name": "Extract All Deposit Table Rows",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "position": [
+        2280,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Transcribe the image to markdown.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You help transcribe documents to markdown, keeping faithful to all text printed and visible to the best of your ability. Ensure you capture all headings, subheadings, titles as well as small print. \n\nThe document contains forms with fields. The form has sections. within the sections you have fields.\nFields are usually shown the following way: id description value\nAn example of this is \n\n1.1 Szemelyi azonosito szam 028573084\n1.5 Szuletesi ido 1958.12.43\n5.2 A fogado allambeli hajo(k) vagy bazishely(ek) cime(i) vagy neve(i), ahol a munkavallalo vagy onallo vallakozo lesz\nDE Bosch Gmbh | DE an verschiedenen Arbeisstellen in Deutchland\n\nYou will need to make sure the content is matched up with the right form id\nI need you to turn this info a table with the form id description and value"
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary"
+            }
+          ]
+        }
+      },
+      "id": "257e2fb4-2267-48c1-b397-35a382f35a4f",
+      "name": "Transcribe to Markdown",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        1480,
+        0
+      ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        280
+      ],
+      "id": "cf788cec-0e7d-442c-9a55-7b6116e7f49a",
+      "name": "Azure OpenAI Chat Model",
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "LlizztRRiyf4dLGh",
+          "name": "Azure Open AI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "typeVersion": 1,
+      "position": [
+        2140,
+        280
+      ],
+      "id": "e4b06fc0-cd81-479b-85db-ea24f45946fc",
+      "name": "Azure OpenAI Chat Model1",
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "LlizztRRiyf4dLGh",
+          "name": "Azure Open AI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 2. Extract Key Data Confidently From the pages\n",
+        "height": 814,
+        "width": 600,
+        "color": 7
+      },
+      "id": "9c99845f-2cd7-4c24-be61-fb2c9706e618",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1240,
+        -280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 1. Turn the pdf into a series of images\n",
+        "height": 814,
+        "width": 1000,
+        "color": 7
+      },
+      "id": "a2cc6298-e2d8-454f-b862-2530d36ab2eb",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        200,
+        -280
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "230f5564-51ca-4d56-a1c7-f3aaeb050964",
+      "name": "Workflow Input Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Split PDF into Images": {
+      "main": [
+        [
+          {
+            "node": "Extract Zip File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Zip File": {
+      "main": [
+        [
+          {
+            "node": "Images To List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Images To List": {
+      "main": [
+        [
+          {
+            "node": "Sort Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine All Pages": {
+      "main": [
+        [
+          {
+            "node": "Extract All Deposit Table Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe to Markdown": {
+      "main": [
+        [
+          {
+            "node": "Combine All Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort Pages": {
+      "main": [
+        [
+          {
+            "node": "Transcribe to Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Transcribe to Markdown",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract All Deposit Table Rows",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Input Trigger": {
+      "main": [
+        [
+          {
+            "node": "Split PDF into Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cead03c5-aae2-414b-abcf-21f6fa98795e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
+  },
+  "id": "BRBuCszQInz9hYba",
+  "tags": []
+}

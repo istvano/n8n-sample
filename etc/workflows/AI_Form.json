@@ -1,0 +1,80 @@
+{
+  "name": "AI Form",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "A1 Form Processing",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -420,
+        -80
+      ],
+      "id": "8b874116-9aa1-4f76-b17a-ce6686c7b6c2",
+      "name": "On form submission",
+      "webhookId": "282a6ee7-baf4-4208-816f-895fb5cd0cea"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "BRBuCszQInz9hYba",
+          "mode": "list",
+          "cachedResultName": "Process A1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -200,
+        -80
+      ],
+      "id": "8c69b303-11d6-4c10-a900-80c0ac439115",
+      "name": "Execute Workflow"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7476fc9f-327a-446c-83f6-869b3ed3760a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
+  },
+  "id": "NqHhs5wkKNlwUVCe",
+  "tags": []
+}
