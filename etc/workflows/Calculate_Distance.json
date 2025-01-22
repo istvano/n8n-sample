@@ -4,41 +4,43 @@
     {
       "parameters": {
         "operation": "xlsx",
-        "binaryPropertyName": "CSV_File",
+        "binaryPropertyName": "XLSX_File",
         "options": {}
       },
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
-        280,
-        0
+        -1400,
+        300
       ],
-      "id": "48196ea4-06c8-406c-bf3c-735a67bb9205",
+      "id": "7c3c3b06-5fd3-4d01-b3ce-c8daf0757a24",
       "name": "Extract from File"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "function sanitizeKeyName(key) {\n  // Normalize the string to decompose special characters and remove diacritics\n  return key\n    .normalize(\"NFD\") // Decomposes characters, e.g., \"é\" becomes \"é\"\n    .replace(/[\\u0300-\\u036f]/g, \"\") // Removes combining diacritical marks\n    .toLowerCase() // Convert to lowercase\n    .replace(/[^a-z0-9]/g, \"\"); // Remove remaining special characters\n}\n\nfunction sanitizeObjectKeys(obj) {\n  if (Array.isArray(obj)) {\n    // If the object is an array, recursively sanitize its elements\n    return obj.map(sanitizeObjectKeys);\n  } else if (obj !== null && typeof obj === \"object\") {\n    // If the object is an object, recursively sanitize its keys and values\n    return Object.keys(obj).reduce((acc, key) => {\n      const sanitizedKey = sanitizeKeyName(key);\n      acc[sanitizedKey] = sanitizeObjectKeys(obj[key]);\n      return acc;\n    }, {});\n  }\n  // If the object is a primitive value, return it as is\n  return obj;\n}\n\nreturn sanitizeObjectKeys($input.item.json);"
+        "jsCode": "function sanitizeKeyName(key) {\n  // Normalize the string to decompose special characters and remove diacritics\n  return key\n    .normalize(\"NFD\") // Decomposes characters, e.g., \"é\" becomes \"e\"\n    .replace(/[\\u0300-\\u036f]/g, \"\") // Removes combining diacritical marks\n    .toLowerCase() // Convert to lowercase\n    .replace(/[^a-z0-9]/g, \"\"); // Remove remaining special characters\n}\n\nfunction sanitizeObjectKeys(obj) {\n  if (Array.isArray(obj)) {\n    // If the object is an array, recursively sanitize its elements\n    return obj.map(sanitizeObjectKeys);\n  } else if (obj !== null && typeof obj === \"object\") {\n    // If the object is an object, recursively sanitize its keys and values\n    return Object.keys(obj).reduce((acc, key) => {\n      const sanitizedKey = sanitizeKeyName(key);\n      acc[sanitizedKey] = sanitizeObjectKeys(obj[key]);\n      return acc;\n    }, {});\n  }\n  // If the object is a primitive value, return it as is\n  return obj;\n}\n\nreturn sanitizeObjectKeys($input.item.json);"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        500,
-        0
+        -1180,
+        300
       ],
-      "id": "cd29bd7a-80bf-4974-a645-83be8845f003",
+      "id": "287124d2-beb0-4551-8c5a-b5cf9521ecab",
       "name": "Normalize Field Names"
     },
     {
-      "parameters": {},
+      "parameters": {
+        "maxItems": 1000
+      },
       "type": "n8n-nodes-base.limit",
       "typeVersion": 1,
       "position": [
-        720,
-        0
+        -960,
+        300
       ],
-      "id": "c4caa34b-55f7-413e-9aad-e18a21044ffe",
+      "id": "4066452c-2599-4286-93f0-3c466320e921",
       "name": "Limit"
     },
     {
@@ -99,10 +101,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        1160,
-        0
+        -520,
+        300
       ],
-      "id": "3311c15c-ad3a-437f-803b-e5ecc339a9db",
+      "id": "49d3cf1b-bf63-4d46-b37c-9d3ddb394d6b",
       "name": "Switch"
     },
     {
@@ -142,10 +144,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1680,
-        -300
+        0,
+        0
       ],
-      "id": "95180aa7-4897-4e4c-9519-494575177856",
+      "id": "6543d8b7-0d4b-4a56-8d99-818454365efc",
       "name": "HTTP Request"
     },
     {
@@ -163,24 +165,24 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        2180,
-        -160
+        500,
+        140
       ],
-      "id": "933ac72f-4797-4ab2-8021-f15648b0bb5e",
+      "id": "5c9738bd-99a5-425d-8089-9b41f5651031",
       "name": "Merge"
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "return {\n  kiindulas_cim: $input.item.json.origin_addresses?.[0]??'Ismeretlen kiindulasi cim',  \n  celallomas_cim: $input.item.json.destination_addresses?.[0]??'Ismeretlen celallomas',\n  tavolsag: $input.item.json.rows?.[0].elements?.[0].distance?.value??0,\n  idotartam: $input.item.json.rows?.[0].elements?.[0].duration?.value??0,\n}"
+        "jsCode": "function convertToHoursMinutes(seconds) {\n    // Calculate the number of hours\n    let hours = Math.floor(seconds / 3600);\n    // Calculate the remaining minutes\n    let minutes = Math.floor((seconds % 3600) / 60);\n    return { hours: hours, minutes: minutes };\n}\n\nconst distance = $input.item.json.rows?.[0].elements?.[0].distance?.value??0;\nconst distance_km = Math.round(distance / 1000);\nconst duration = $input.item.json.rows?.[0].elements?.[0].duration?.value??0;\nconst time = convertToHoursMinutes(duration);\n\nreturn {\n  kiindulas_cim: $input.item.json.origin_addresses?.[0]??'Ismeretlen kiindulasi cim',  \n  celallomas_cim: $input.item.json.destination_addresses?.[0]??'Ismeretlen celallomas',\n  tavolsag: distance,\n  tavolsag_km: distance_km,\n  idotartam: duration,\n  idotartam_ora: `${time.hours} óra, ${time.minutes} perc`\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1900,
-        -300
+        220,
+        0
       ],
-      "id": "21f58158-6db6-4744-8bc5-5c896d8f8ee5",
+      "id": "824d2f46-4b27-4bc9-804d-ed0209c1737f",
       "name": "Normalize distance info"
     },
     {
@@ -191,10 +193,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        940,
-        0
+        -740,
+        300
       ],
-      "id": "934e7ee9-5cbd-437a-b258-4a6598b46312",
+      "id": "42034049-253e-41fa-bc81-bbd40962ae15",
       "name": "Create distance field"
     },
     {
@@ -205,26 +207,26 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1400,
-        -180
+        -280,
+        120
       ],
-      "id": "2f479c8b-d99a-4830-88b9-3f341100f0c1",
+      "id": "0a93a6e5-20cf-4f42-85d2-0d4a3a91151d",
       "name": "Create Source and Target Fields"
     },
     {
       "parameters": {
-        "operation": "xlsx",
+        "operation": "xls",
         "options": {
-          "fileName": "=feldolgozott_{{ $('form').first().json['CSV File'].filename }}"
+          "fileName": "=feldolgozott_{{ $('form').first().json[\"XLSX File\"].filename }}"
         }
       },
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2600,
-        0
+        920,
+        300
       ],
-      "id": "d34d8ac9-d952-423f-88bb-076dd9a1ee85",
+      "id": "14c9c6ea-a366-4377-a3df-8d267ac3bcaa",
       "name": "Convert to File"
     },
     {
@@ -232,15 +234,15 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        2380,
-        0
+        700,
+        300
       ],
-      "id": "34b554ed-93d9-4509-ba84-1d46bf03f338",
+      "id": "597caeae-3d90-4f7c-ab11-7331d2a74fba",
       "name": "Merge with non filtered"
     },
     {
       "parameters": {
-        "fromEmail": "workflow@n8n.localhost.local",
+        "fromEmail": "noreply@hr-group.hu",
         "toEmail": "={{ $('form').first().json.Email }}",
         "subject": "Tavolsag kalkulacio elkeszult",
         "emailFormat": "text",
@@ -250,29 +252,29 @@
           "attachments": "=data"
         }
       },
-      "id": "faa0d2e0-5578-46d6-ade5-d7f6f337e107",
+      "id": "ea2e0319-602e-4476-b1c0-87c3a2c67c78",
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        2840,
-        0
+        1160,
+        300
       ],
       "credentials": {
         "smtp": {
-          "id": "nF8jekF8CRIcIClT",
-          "name": "Local SMTP account"
+          "id": "HvaFmlUrvL4Xz7Re",
+          "name": "SMTP account"
         }
       }
     },
     {
       "parameters": {
         "formTitle": "Távolság Kalkulátor",
-        "formDescription": "You will receive an email soon",
+        "formDescription": "Kérjük, töltse fel az Excel fájlt, amely tartalmazza a forrást és a célt, és adja meg az e-mail címét. A rendszer a fájlban található adatokat felhasználva kiszámítja a forrás és a cél közötti távolságot, majd az eredményt az Ön által megadott e-mail címre küldi el.",
         "formFields": {
           "values": [
             {
-              "fieldLabel": "CSV File",
+              "fieldLabel": "XLSX File",
               "fieldType": "file",
               "multipleFiles": false,
               "acceptFileTypes": ".xlsx",
@@ -286,15 +288,22 @@
             }
           ]
         },
-        "options": {}
+        "options": {
+          "buttonLabel": "Küldés",
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Hamarosan emailben elküldjük az adatokat a megadott emailcímre."
+            }
+          }
+        }
       },
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
       "position": [
-        0,
-        0
+        -1680,
+        300
       ],
-      "id": "e153e9f6-52c6-45c6-8a5d-ca4cc158ef82",
+      "id": "fb878299-e034-4750-ad87-92bd2c07c32d",
       "name": "form",
       "webhookId": "7c15f021-6152-4670-9b70-62a6de8778ef"
     }
@@ -446,14 +455,14 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "c1e97fc9-7651-4d3d-a550-b857fadf6bac",
+  "versionId": "9c9f05c6-ec03-41d0-8880-137eb99b9064",
   "meta": {
-    "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
+    "instanceId": "7cfddeb6999f34b6da92291d1629f587d828f7bfb858bf018672cb83a32e762c"
   },
-  "id": "jL6w50zyDLadcUYS",
+  "id": "F0vd5FNr8kODWlzs",
   "tags": []
 }
