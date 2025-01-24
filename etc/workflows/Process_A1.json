@@ -257,6 +257,19 @@
       ],
       "id": "230f5564-51ca-4d56-a1c7-f3aaeb050964",
       "name": "Workflow Input Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json?.output || {}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ],
+      "id": "9bce2f0c-1699-4d9c-8c45-5e2418e59e6a",
+      "name": "Code"
     }
   ],
   "pinData": {},
@@ -359,13 +372,24 @@
           }
         ]
       ]
+    },
+    "Extract All Deposit Table Rows": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "cead03c5-aae2-414b-abcf-21f6fa98795e",
+  "versionId": "b6e13782-10ab-4c32-b1a3-cc401a6462e3",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
