@@ -134,9 +134,9 @@
       "parameters": {
         "text": "= {{ $json.pages.join('---') }}",
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"array\",\n  \"items\": {\n\t\"type\": \"object\",\n\t\"properties\": {\n      \"familyName\": { \"type\": \"string\" },\n      \"firstName\": { \"type\": \"string\" },\n      \"birthName\": { \"type\": \"string\" },\n      \"birthDate\": { \"type\": \"date\" },\n      \"NInumber\": { \"type\": \"string\" },\n      \"memberCountry\": { \"type\": \"string\" },\n      \"startDay\": { \"type\": \"date\" },\n      \"lastDay\": { \"type\": \"date\" },\n      \"sendingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyCountry\": { \"type\": \"string\" }\n\t}\n  }}",
+        "inputSchema": "{\n  \"type\": \"array\",\n  \"items\": {\n\t\"type\": \"object\",\n\t\"properties\": {\n      \"familyName\": { \"type\": \"string\" },\n      \"firstName\": { \"type\": \"string\" },\n      \"birthName\": { \"type\": \"string\" },\n      \"birthDate\": { \"type\": \"date\" },\n      \"NInumber\": { \"type\": \"string\" },\n      \"memberCountry\": { \"type\": \"string\" },\n      \"startDay\": { \"type\": \"date\" },\n      \"lastDay\": { \"type\": \"date\" },\n      \"sendingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyCountry\": { \"type\": \"string\" },\n      \"issueDate\": { \"type\": \"date\" }\n\t}\n  }}",
         "options": {
-          "systemPromptTemplate": "This document contains an A1 form that certifies the social security legislation which applies to a posted worker and confirms that this person has no obligations to pay contributions in another Member State. I need you to gather information about this form. \nMake sure when a country field is extracted, you turn the country into an ISO country code like AUT DEU HUN.\n\nI need the following fields extracted:\n1.2 family name\n1.3 first name\n1.4 birth name\n1.5 birth date\n1.1 NI number\n2.1 member country\n2.2 start day\n2.3 last day\n4.3 sending company  name\n5.1 or 5.2 employing company information that contains a company name and also a country of that company. These two fields must be separated."
+          "systemPromptTemplate": "This document contains an A1 form that certifies the social security legislation which applies to a posted worker and confirms that this person has no obligations to pay contributions in another Member State. I need you to gather information about this form. \nMake sure when a country field is extracted, you turn the country into an ISO country code like AUT DEU HUN.\n\nI need the following fields extracted:\n1.2 family name\n1.3 first name\n1.4 birth name\n1.5 birth date\n1.1 NI number\n2.1 member country\n2.2 start day\n2.3 last day\n4.3 sending company  name\n5.1 or 5.2 employing company information that contains a company name and also a country of that company. These two fields must be separated.\n6.10 Date which is the date it was issued"
         }
       },
       "id": "cdadc1a9-1656-40dd-a9dc-03ea86bb57bf",
@@ -389,7 +389,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "b6e13782-10ab-4c32-b1a3-cc401a6462e3",
+  "versionId": "5dc034f3-ca65-4050-b36f-f835cfa6d37f",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
