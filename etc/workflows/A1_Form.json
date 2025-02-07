@@ -1,0 +1,162 @@
+{
+  "name": "A1 Form",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "A1 Form Processing",
+        "formDescription": "Kérlek, tölts fel egy A1 formot tartalmazó PDF dokumentumot, és add meg az e-mail címedet, ahova elküldhetjük a feldolgozás eredményét.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Start",
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A PDF feldolgozása elindult, hamarosan e-mailben értesítünk."
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "151c67a0-e4ad-45ed-8e45-bb250f076311",
+      "name": "On form submission",
+      "webhookId": "282a6ee7-baf4-4208-816f-895fb5cd0cea"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "WhD7CvvuOR2pXelD",
+          "mode": "list",
+          "cachedResultName": "Process A1 with OCR"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "04fa2fec-0d4c-463a-a963-45ecaa01d2ce",
+      "name": "Execute Workflow"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "={{ $('On form submission').item.json.File[0].filename }}.csv"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        420,
+        0
+      ],
+      "id": "b2081dc1-4bbb-47fc-83c5-82c48bf47a21",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('On form submission').item.json.Email }}",
+        "subject": "A1 fájl feldolgozás elkészült",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került. Kérlek, keresd a csatolt CSV fájlt az e-mailben, amely tartalmazza az eredményeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "ca8a67ed-a74b-4494-9c7d-bc99121ccf48",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        620,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "HvaFmlUrvL4Xz7Re",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "any",
+    "errorWorkflow": "pDBif1hgmdnILuw9"
+  },
+  "versionId": "2254d5e9-ab38-4c75-9900-daa3395b269b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7cfddeb6999f34b6da92291d1629f587d828f7bfb858bf018672cb83a32e762c"
+  },
+  "id": "9tZFVdYgGbpWQ5MG",
+  "tags": []
+}

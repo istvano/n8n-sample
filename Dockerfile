@@ -1,4 +1,5 @@
-FROM n8nio/n8n:1.73.1
+ARG TAG=1.75.0
+FROM n8nio/n8n:${TAG}
 
 USER root
 

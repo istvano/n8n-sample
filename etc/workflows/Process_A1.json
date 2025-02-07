@@ -12,12 +12,12 @@
         },
         "options": {}
       },
-      "id": "5abc7936-fa05-4c85-82f4-3f573f20e221",
+      "id": "53df9cb6-5880-436c-94a4-4366f94c64a2",
       "name": "Sort Pages",
       "type": "n8n-nodes-base.sort",
       "position": [
-        1040,
-        0
+        700,
+        280
       ],
       "typeVersion": 1
     },
@@ -59,23 +59,23 @@
         },
         "options": {}
       },
-      "id": "cf9bff8b-8922-492f-8896-fe6217902b3a",
+      "id": "879e9ba1-862f-443c-a1d6-172cadfed82f",
       "name": "Split PDF into Images",
       "type": "n8n-nodes-base.httpRequest",
       "position": [
-        280,
-        0
+        80,
+        280
       ],
       "typeVersion": 4.2
     },
     {
       "parameters": {},
-      "id": "fa0724d5-16d1-44db-8b16-f8bc641cc348",
+      "id": "9d455a50-b4c7-4343-9ef4-79c4b41af084",
       "name": "Extract Zip File",
       "type": "n8n-nodes-base.compression",
       "position": [
-        540,
-        0
+        300,
+        280
       ],
       "typeVersion": 1.1
     },
@@ -83,12 +83,12 @@
       "parameters": {
         "jsCode": "let results = [];\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                data: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
       },
-      "id": "39bf8c4c-15f6-435b-9b7a-b7092614d88a",
+      "id": "a8c154eb-14f3-42e9-a1ef-5cc3103bd375",
       "name": "Images To List",
       "type": "n8n-nodes-base.code",
       "position": [
-        800,
-        0
+        500,
+        280
       ],
       "typeVersion": 2
     },
@@ -96,15 +96,15 @@
       "parameters": {
         "content": "## 3. Summarize the information\n\n",
         "height": 814,
-        "width": 720,
+        "width": 600,
         "color": 7
       },
-      "id": "f39815ac-597f-441d-8b34-9a48267681e7",
+      "id": "083c3140-9456-4d66-acc2-da6228615961",
       "name": "Sticky Note4",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        1880,
-        -280
+        1800,
+        0
       ],
       "typeVersion": 1
     },
@@ -121,12 +121,12 @@
         },
         "options": {}
       },
-      "id": "ab54d959-50e1-4e5a-ab8f-e38bddffb067",
+      "id": "bc466f81-059c-4894-8026-e4c7a04bb0e8",
       "name": "Combine All Pages",
       "type": "n8n-nodes-base.aggregate",
       "position": [
-        1980,
-        0
+        1880,
+        280
       ],
       "typeVersion": 1
     },
@@ -136,15 +136,15 @@
         "schemaType": "manual",
         "inputSchema": "{\n  \"type\": \"array\",\n  \"items\": {\n\t\"type\": \"object\",\n\t\"properties\": {\n      \"familyName\": { \"type\": \"string\" },\n      \"firstName\": { \"type\": \"string\" },\n      \"birthName\": { \"type\": \"string\" },\n      \"birthDate\": { \"type\": \"date\" },\n      \"NInumber\": { \"type\": \"string\" },\n      \"memberCountry\": { \"type\": \"string\" },\n      \"startDay\": { \"type\": \"date\" },\n      \"lastDay\": { \"type\": \"date\" },\n      \"sendingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyCountry\": { \"type\": \"string\" },\n      \"issueDate\": { \"type\": \"date\" }\n\t}\n  }}",
         "options": {
-          "systemPromptTemplate": "This document contains an A1 form that certifies the social security legislation which applies to a posted worker and confirms that this person has no obligations to pay contributions in another Member State. I need you to gather information about this form. \nMake sure when a country field is extracted, you turn the country into an ISO country code like AUT DEU HUN.\n\nI need the following fields extracted:\n1.2 family name\n1.3 first name\n1.4 birth name\n1.5 birth date\n1.1 NI number\n2.1 member country\n2.2 start day\n2.3 last day\n4.3 sending company  name\n5.1 or 5.2 employing company information that contains a company name and also a country of that company. These two fields must be separated.\n6.10 Date which is the date it was issued"
+          "systemPromptTemplate": "This document contains an A1 form that certifies the social security legislation which applies to a posted worker and confirms that this person has no obligations to pay contributions in another Member State. I need you to gather information about this form. \nMake sure when a country field is extracted, you turn the country into an three letter ISO country code like AUT DEU HUN.\n\nI need the following fields extracted:\n1.2 family name\n1.3 first name\n1.4 birth name\n1.5 birth date\n1.1 NI number\n2.1 member country\n2.2 start day\n2.3 last day\n4.3 sending company  name\n5.1 or 5.2 employing company information that contains a company name and also a country of that company. These two fields must be separated.\n6.10 Date which is the date it was issued"
         }
       },
-      "id": "cdadc1a9-1656-40dd-a9dc-03ea86bb57bf",
+      "id": "b83787de-3d6a-48d4-aa67-59d9decbb323",
       "name": "Extract All Deposit Table Rows",
       "type": "@n8n/n8n-nodes-langchain.informationExtractor",
       "position": [
-        2280,
-        0
+        2080,
+        280
       ],
       "typeVersion": 1
     },
@@ -164,12 +164,12 @@
           ]
         }
       },
-      "id": "257e2fb4-2267-48c1-b397-35a382f35a4f",
+      "id": "c3ddec39-065b-47ef-b137-1f8aba6d957f",
       "name": "Transcribe to Markdown",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "position": [
-        1480,
-        0
+        1080,
+        140
       ],
       "typeVersion": 1.4
     },
@@ -181,14 +181,14 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
       "typeVersion": 1,
       "position": [
-        1440,
-        280
+        1100,
+        580
       ],
-      "id": "cf788cec-0e7d-442c-9a55-7b6116e7f49a",
+      "id": "de7fc98a-adfe-428e-a567-1de61926c1e7",
       "name": "Azure OpenAI Chat Model",
       "credentials": {
         "azureOpenAiApi": {
-          "id": "LlizztRRiyf4dLGh",
+          "id": "z1TPSYrOA7duKTxd",
           "name": "Azure Open AI account"
         }
       }
@@ -201,14 +201,14 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
       "typeVersion": 1,
       "position": [
-        2140,
-        280
+        2100,
+        580
       ],
-      "id": "e4b06fc0-cd81-479b-85db-ea24f45946fc",
+      "id": "1aa34855-e613-48e0-8e1c-c9019fb16310",
       "name": "Azure OpenAI Chat Model1",
       "credentials": {
         "azureOpenAiApi": {
-          "id": "LlizztRRiyf4dLGh",
+          "id": "z1TPSYrOA7duKTxd",
           "name": "Azure Open AI account"
         }
       }
@@ -217,15 +217,15 @@
       "parameters": {
         "content": "## 2. Extract Key Data Confidently From the pages\n",
         "height": 814,
-        "width": 600,
+        "width": 580,
         "color": 7
       },
-      "id": "9c99845f-2cd7-4c24-be61-fb2c9706e618",
+      "id": "69344ad0-ae24-4dea-911d-c24301ab5a8f",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        1240,
-        -280
+        920,
+        0
       ],
       "typeVersion": 1
     },
@@ -233,15 +233,15 @@
       "parameters": {
         "content": "## 1. Turn the pdf into a series of images\n",
         "height": 814,
-        "width": 1000,
+        "width": 880,
         "color": 7
       },
-      "id": "a2cc6298-e2d8-454f-b862-2530d36ab2eb",
+      "id": "38e599d3-9a98-480a-8432-cd5c9ddb16e5",
       "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        200,
-        -280
+        0,
+        0
       ],
       "typeVersion": 1
     },
@@ -252,10 +252,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        0,
-        0
+        -200,
+        280
       ],
-      "id": "230f5564-51ca-4d56-a1c7-f3aaeb050964",
+      "id": "b9d76178-3a96-443c-985c-cfaed20966aa",
       "name": "Workflow Input Trigger"
     },
     {
@@ -265,11 +265,61 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2640,
-        0
+        2440,
+        280
       ],
-      "id": "9bce2f0c-1699-4d9c-8c45-5e2418e59e6a",
+      "id": "c55599d3-9e8b-4e7c-8dd7-0f72fa99c5b6",
       "name": "Code"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ea43d8d3-4cfb-4559-aad1-c31bf716b7a7",
+              "leftValue": "={{ $json.ignore }}",
+              "rightValue": "AZ EURÓPAI EGÉSZSÉGBIZTOSÍTÁSI KÁRTYÁT HELYETTESÍTŐ",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1640,
+        420
+      ],
+      "id": "f89d1561-d5ea-4800-a613-e827b78671e4",
+      "name": "Remove Extra Pages"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Removes diacritical marks (accents) from a string.\n * Uses Unicode normalization to decompose accented characters and then removes the diacritic marks.\n *\n * @param {string} str - The string from which to remove diacritics.\n * @returns {string} - The normalized string without diacritical marks.\n */\nfunction removeDiacritics(str) {\n  // Normalize to \"NFD\" (Normalization Form Decomposition) which separates the base character from its accents.\n  // Then, remove the combining diacritical marks (Unicode range \\u0300 - \\u036f).\n  return str.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n}\n\n/**\n * Searches for a search term within a given text, ignoring case and diacritics.\n *\n * @param {string} text - The text in which to search.\n * @param {string} searchTerm - The term to search for.\n * @returns {boolean} - True if the search term is found (ignoring case and diacritics); otherwise, false.\n */\nfunction containsIgnoreDiacritics(text, searchTerm) {\n  // Remove diacritics and convert both text and search term to lower case.\n  const normalizedText = removeDiacritics(text).toLowerCase();\n  const normalizedSearchTerm = removeDiacritics(searchTerm).toLowerCase();\n\n  // Check if the normalized text contains the normalized search term.\n  return normalizedText.includes(normalizedSearchTerm);\n}\n\n// Add a new field called 'myNewField' to the JSON of the item\nconst text = $input.item.json.text;\nconst proof = \"EGÉSZSÉGBIZTOSÍTÁSI KÁRTYÁT HELYETTESÍTŐ\"\nconst signature = \"ZÁRADÉK\"\n$input.item.json.ignore = containsIgnoreDiacritics(text, proof) || containsIgnoreDiacritics(text, signature);\n\n\nreturn $input.item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        140
+      ],
+      "id": "cc30ab20-8370-46e8-8a84-dffc6f97e79a",
+      "name": "Flag not needed"
     }
   ],
   "pinData": {},
@@ -322,7 +372,7 @@
       "main": [
         [
           {
-            "node": "Combine All Pages",
+            "node": "Flag not needed",
             "type": "main",
             "index": 0
           }
@@ -383,17 +433,41 @@
           }
         ]
       ]
+    },
+    "Flag not needed": {
+      "main": [
+        [
+          {
+            "node": "Remove Extra Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Extra Pages": {
+      "main": [
+        [
+          {
+            "node": "Combine All Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "callerPolicy": "any",
+    "errorWorkflow": "pDBif1hgmdnILuw9"
   },
-  "versionId": "5dc034f3-ca65-4050-b36f-f835cfa6d37f",
+  "versionId": "0f6320fd-5ea3-42fe-9af8-18712c38650b",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92"
+    "instanceId": "7cfddeb6999f34b6da92291d1629f587d828f7bfb858bf018672cb83a32e762c"
   },
-  "id": "BRBuCszQInz9hYba",
+  "id": "P9IuTzIArUaP4Q9U",
   "tags": []
 }

@@ -1,5 +1,3 @@
-version: "3.8"
-
 volumes:
   n8n_db_storage:
   n8n_storage:
@@ -102,6 +100,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - n8n
 
   # redis-gui:
   #   image: redislabs/redisinsight
@@ -112,7 +112,7 @@ services:
   pdfprocessor:
     image: stirlingtools/stirling-pdf:latest
     ports:
-      - 127.0.0.1:8080:8080
+      - 127.0.0.1:7070:8080
     volumes:
       - ./data/pdf/trainingData:/usr/share/tessdata # Required for extra OCR languages
       - ./data/pdf/configs:/configs
@@ -127,6 +127,8 @@ services:
       - SECURITY_CUSTOMGLOBALAPIKEY
       - LANGS="en_GB,hu"
       - ALLOW_GOOGLE_VISIBILITY=false
+    networks:
+      - n8n
 
   postgres:
     image: postgres:16
@@ -147,12 +149,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - n8n
+
 
   # adminer:
   #   image: adminer
   #   restart: always
   #   ports:
   #     - 127.0.0.1:8080:8080
+  #   networks:
+  #     - n8n
+
 
   mail:
     image: maildev/maildev
@@ -166,6 +174,9 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - n8n
+
 
   storage:
     image: drakkan/sftpgo:slim
@@ -189,8 +200,11 @@ services:
       - ${DATA_FOLDER}/storage/userhome:/srv/sftpgo:rw
       - n8n_ftp_db:/var/lib/sftpgo:rw
     ports:
-      - 127.0.0.1:4040:8080
+      - 127.0.0.1:5050:8080
       - 127.0.0.1:2022:2022
+    networks:
+      - n8n
+
 
 #   ftp:
 #     image: delfer/alpine-ftp-server
@@ -218,7 +232,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.74.3
+        TAG: 1.76.1
     ports:
       - 127.0.0.1:5678:5678
     healthcheck:
@@ -227,6 +241,9 @@ services:
       retries: 3
     volumes:
       - ${DATA_FOLDER}/storage/userhome:/n8n/files:rw
+    networks:
+      - n8n
+      - ai
 
 
   n8n-worker:
@@ -234,7 +251,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.74.3
+        TAG: 1.76.1
     command: "worker --concurrency=30"
     depends_on:
       - n8n
@@ -244,6 +261,9 @@ services:
       retries: 3
     volumes:
       - ${DATA_FOLDER}/storage/userhome:/n8n/files:rw
+    networks:
+      - n8n
+      - ai
 
 
   n8n-hook:
@@ -251,7 +271,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.74.3
+        TAG: 1.76.1
     command: webhook
     healthcheck:
       test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
@@ -261,3 +281,13 @@ services:
       - n8n
     volumes:
       - ${DATA_FOLDER}/storage/userhome:/n8n/files:rw
+    networks:
+      - n8n
+      - ai
+
+networks:
+  n8n: 
+    name: n8n
+    driver: bridge
+  ai:
+    external: true
