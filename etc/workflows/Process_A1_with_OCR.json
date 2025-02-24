@@ -378,7 +378,7 @@
         "schemaType": "manual",
         "inputSchema": "{\n  \"type\": \"array\",\n  \"items\": {\n\t\"type\": \"object\",\n\t\"properties\": {\n      \"familyName\": { \"type\": \"string\" },\n      \"firstName\": { \"type\": \"string\" },\n      \"birthName\": { \"type\": \"string\" },\n      \"birthDate\": { \"type\": \"string\" },\n      \"NInumber\": { \"type\": \"string\" },\n      \"memberCountry\": { \"type\": \"string\" },\n      \"startDay\": { \"type\": \"string\" },\n      \"lastDay\": { \"type\": \"string\" },\n      \"sendingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyCountry\": { \"type\": \"string\" },\n      \"issueDate\": { \"type\": \"string\" }\n\t}\n  }}",
         "options": {
-          "systemPromptTemplate": "You are an form field extraction assistant. \nBelow is the final reconciled text from an A1 certificate. \nEach field in the text appears field id field name and value e.g.  \"1.1 Személyi azonosító szám: 138672490\". \nThe employing company field 5.1 or 5.2 might contain a long text with country and company name information.\n\nPlease:\n1. Identify each field by its numeric identifier \n2. Extract the following field label and the value.\n\n1.1 Személyi azonosító szám \n1.2 Családi név \n1.3 Utónév \n1.4 Születési név \n1.5 Születési dátum\n\n2.1 Tagállam\n2.2 Kezdő nap\n2.3 Utolsó nap\n\n4.3 sendingCompanyName\n5.1 or 5.2 employing company: separate the company name and country\n\n6.10 dátum ( date when the form was issued)\n\nFor country fields, convert the name into its corresponding ISO 3166-1 alpha-3 code (e.g., 'Austria' -> 'AUT', 'Germany' -> 'DEU', 'Hungary' -> 'HUN')."
+          "systemPromptTemplate": "You are an form field extraction assistant. \nBelow is the final reconciled text from an A1 certificate. \nEach field in the text appears field id field name and value e.g.  \"1.1 Személyi azonosító szám: 138672490\". \nThe employing company field 5.1 or 5.2 might contain a long text with country and company name information.\n\nPlease:\n1. Identify each field by its numeric identifier \n2. Extract the following field label and the value.\n\n1.1 Személyi azonosító szám \n1.2 Családi név \n1.3 Utónév \n1.4 Születési név \n1.5 Születési dátum\n\n2.1 Tagállam\n2.2 Kezdő nap\n2.3 Utolsó nap\n\n4.3 sendingCompanyName\n5.1 or 5.2 employing company: separate the company name and country\n\n6.10 dátum ( date when the form was issued)\n\n**Important:**\n- Do not modify or translate the field value.\n- If you are uncertain about a field’s value, output `null` as the value instead of guessing.\n\nFor country fields, convert the name into its corresponding ISO 3166-1 alpha-3 code (e.g., 'Austria' -> 'AUT', 'Germany' -> 'DEU', 'Hungary' -> 'HUN')."
         }
       },
       "id": "c687f6b2-d6bb-4a8a-a084-18e25d5542ae",
@@ -923,7 +923,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "6a68c69e-e538-45e8-b27e-3243758efb23",
+  "versionId": "d850dfe8-324b-47d6-8695-ecce01fb3049",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "7cfddeb6999f34b6da92291d1629f587d828f7bfb858bf018672cb83a32e762c"
