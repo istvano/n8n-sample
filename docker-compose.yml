@@ -77,6 +77,11 @@ x-shared: &shared
     - REDIS_PORT
     - GOOGLE_MAPS_API_KEY
     - PDF_PROCESSOR_API_KEY=${SECURITY_CUSTOMGLOBALAPIKEY}
+    - N8N_SECURE_COOKIE=false
+    - BER_GRAPHQL_ENDPOINT
+    - BER_GRAPHQL_TOKEN
+    - BER_API_ENDPOINT
+    - BER_API_AUTH_TOKEN
   links:
     - postgres
     - redis
@@ -163,14 +168,17 @@ services:
 
 
   mail:
-    image: maildev/maildev
+    image: axllent/mailpit
     restart: always
     ports:
-      - 127.0.0.1:1080:1080
+      - 127.0.0.1:8025:8025
     environment:
-      - MAILDEV_BASE_PATHNAME=/email
+      - TZ=Europe/London
+      - MP_SMTP_AUTH_ACCEPT_ANY=true
+      - MP_SMTP_DISABLE_RDNS=true
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
     healthcheck:
-      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:1080 || exit 1']
+      test: ['CMD-SHELL', 'wget --no-verbose --tries=1 --spider http://127.0.0.1:8025 || exit 1']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -232,7 +240,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.76.1
+        TAG: 1.77.3
     ports:
       - 127.0.0.1:5678:5678
     healthcheck:
@@ -244,6 +252,7 @@ services:
     networks:
       - n8n
       - ai
+      - external_network
 
 
   n8n-worker:
@@ -251,7 +260,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.76.1
+        TAG: 1.77.3
     command: "worker --concurrency=30"
     depends_on:
       - n8n
@@ -264,6 +273,7 @@ services:
     networks:
       - n8n
       - ai
+      - external_network
 
 
   n8n-hook:
@@ -271,7 +281,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.76.1
+        TAG: 1.77.3
     command: webhook
     healthcheck:
       test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
@@ -284,10 +294,15 @@ services:
     networks:
       - n8n
       - ai
+      - external_network
 
 networks:
   n8n: 
     name: n8n
     driver: bridge
   ai:
+    external: true
+  external_network:
+    name: ber_services_network
+    driver: bridge
     external: true
