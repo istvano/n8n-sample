@@ -236,8 +236,18 @@ stack/volume/rm:  ##@stack Remove volumes
 		$(DOCKER) volume rm $(CURFOLDER)_$$v; \
 	done
 
+.PHONY: n8n/export/workflow
+n8n/export/workflow:  ##@n8n export workflows
+	$(COMPOSE) exec n8n n8n export:workflow --backup --output=/n8n/backup
 
-#n8n export:workflow --backup --output=/tmp/n8n/
-#n8n export:credentials --backup --output=backups/latest/
-#n8n import:workflow --separate --input=backups/latest/
-#n8n import:credentials --separate --input=backups/latest/
+.PHONY: n8n/export/credentials
+n8n/export/credentials:  ##@n8n export credentials
+	$(COMPOSE) exec n8n n8n export:credentials --backup --output=/n8n/backup
+
+.PHONY: n8n/import/workflow
+n8n/import/workflow:  ##@n8n import workflows
+	$(COMPOSE) exec n8n n8n import:workflow --separate --input=/n8n/backup
+
+.PHONY: n8n/import/credentials
+n8n/import/credentials:  ##@n8n import credentials
+	$(COMPOSE) exec n8n n8n import:credentials --separate --input=/n8n/backup

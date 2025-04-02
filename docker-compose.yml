@@ -87,6 +87,8 @@ x-shared: &shared
     - redis
   volumes:
     - n8n_storage:/home/node/.n8n
+    - ${DATA_FOLDER}/storage/userhome:/n8n/files:rw
+    - ${DATA_FOLDER}/storage/backup:/n8n/backup:rw
   depends_on:
     postgres:
       condition: service_healthy
@@ -247,8 +249,6 @@ services:
       test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
       interval: 20s
       retries: 3
-    volumes:
-      - ${DATA_FOLDER}/storage/userhome:/n8n/files:rw
     networks:
       - n8n
       - ai
@@ -268,8 +268,6 @@ services:
       test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
       interval: 20s
       retries: 3
-    volumes:
-      - ${DATA_FOLDER}/storage/userhome:/n8n/files:rw
     networks:
       - n8n
       - ai
@@ -289,8 +287,6 @@ services:
       retries: 3
     depends_on:
       - n8n
-    volumes:
-      - ${DATA_FOLDER}/storage/userhome:/n8n/files:rw
     networks:
       - n8n
       - ai
