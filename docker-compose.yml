@@ -29,7 +29,7 @@ x-shared: &shared
     - N8N_METRICS
     - N8N_METRICS_PREFIX
     - VUE_APP_URL_BASE_API={PROTOCOL}://${SUBDOMAIN}.${DOMAIN_NAME}:${EXT_PORT}
-    - WEBHOOK_URL=${PROTOCOL}://${WEBHOOK_DOMAIN}.${DOMAIN_NAME}:${EXT_PORT}/
+    - WEBHOOK_URL=${PROTOCOL}://${SUBDOMAIN}.${DOMAIN_NAME}:${EXT_PORT}/
     - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
     - DB_TYPE=postgresdb
     - DB_POSTGRESDB_HOST=postgres
@@ -69,6 +69,8 @@ x-shared: &shared
     - N8N_ONBOARDING_FLOW_DISABLED
     - N8N_WORKFLOW_CALLER_POLICY_DEFAULT_OPTION
     - N8N_DEFAULT_BINARY_DATA_MODE
+    - N8N_RUNNERS_ENABLED=true
+    - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=true
     - FTP_HOST
     - FTP_PORT
     - FTP_USERNAME
@@ -242,7 +244,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.77.3
+        TAG: 1.86.0
     ports:
       - 127.0.0.1:5678:5678
     healthcheck:
@@ -260,7 +262,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.77.3
+        TAG: 1.86.0
     command: "worker --concurrency=30"
     depends_on:
       - n8n
@@ -268,25 +270,6 @@ services:
       test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
       interval: 20s
       retries: 3
-    networks:
-      - n8n
-      - ai
-      - external_network
-
-
-  n8n-hook:
-    <<: *shared
-    build:
-      context: .
-      args:
-        TAG: 1.77.3
-    command: webhook
-    healthcheck:
-      test: ["CMD-SHELL", "/usr/bin/wget --server-response --proxy off --no-verbose --tries=1 --timeout=3 127.0.0.1:5678/healthz -O /dev/null 2>&1 | grep -q 'HTTP/1.1 200 OK'"]
-      interval: 20s
-      retries: 3
-    depends_on:
-      - n8n
     networks:
       - n8n
       - ai

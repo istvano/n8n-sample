@@ -238,16 +238,16 @@ stack/volume/rm:  ##@stack Remove volumes
 
 .PHONY: n8n/export/workflow
 n8n/export/workflow:  ##@n8n export workflows
-	$(COMPOSE) exec n8n n8n export:workflow --backup --output=/n8n/backup
+	$(COMPOSE) exec n8n n8n export:workflow --backup --output=/n8n/backup/workflows
 
 .PHONY: n8n/export/credentials
 n8n/export/credentials:  ##@n8n export credentials
-	$(COMPOSE) exec n8n n8n export:credentials --backup --output=/n8n/backup
+	$(COMPOSE) exec n8n n8n export:credentials --backup --output=/n8n/backup/credentials
 
 .PHONY: n8n/import/workflow
 n8n/import/workflow:  ##@n8n import workflows
-	$(COMPOSE) exec n8n n8n import:workflow --separate --input=/n8n/backup
+	$(COMPOSE) exec n8n n8n import:workflow --separate --input=/n8n/backup/workflows
 
 .PHONY: n8n/import/credentials
 n8n/import/credentials:  ##@n8n import credentials
-	$(COMPOSE) exec n8n n8n import:credentials --separate --input=/n8n/backup
+	$(COMPOSE) exec n8n n8n import:credentials --separate --input=/n8n/backup/credentials
