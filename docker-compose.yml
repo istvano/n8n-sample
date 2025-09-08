@@ -244,7 +244,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.86.0
+        TAG: 1.109.2
     ports:
       - 127.0.0.1:5678:5678
     healthcheck:
@@ -253,7 +253,6 @@ services:
       retries: 3
     networks:
       - n8n
-      - ai
       - external_network
 
 
@@ -262,7 +261,7 @@ services:
     build:
       context: .
       args:
-        TAG: 1.86.0
+        TAG: 1.109.2
     command: "worker --concurrency=30"
     depends_on:
       - n8n
@@ -272,15 +271,12 @@ services:
       retries: 3
     networks:
       - n8n
-      - ai
       - external_network
 
 networks:
   n8n: 
     name: n8n
     driver: bridge
-  ai:
-    external: true
   external_network:
     name: ber_services_network
     driver: bridge
