@@ -1,0 +1,595 @@
+{
+  "createdAt": "2025-09-08T04:17:25.780Z",
+  "updatedAt": "2025-09-08T04:17:25.780Z",
+  "id": "1yzXVirNoT1BSRdy",
+  "name": "Import Worker with Postings",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "File",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -580,
+        40
+      ],
+      "id": "2337ccdc-ecd0-474c-b239-9adf15463277",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a1b65a-0f17-4af4-a6ba-ffd34b643618",
+              "leftValue": "={{ $json.worker_uid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3ff997b1-71a4-45b0-b832-869e0adf47d2",
+              "leftValue": "={{ $json.worker_uid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -220,
+        40
+      ],
+      "id": "ab30f5c3-84c3-4c0c-8550-ee7b46fac838",
+      "name": "Remove invalid entries"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        -260
+      ],
+      "id": "ea74c503-3d69-4eff-910c-119395b9b0af",
+      "name": "When clicking ‘Test workflow’",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { nanoid } = require('nanoid');\n\nconst identifierTypeMAP = {\n  'NI':'NIN',\n  'TAX': 'TAXN'\n}\n\n// Helper function: returns true if a value is undefined, null, or an empty string.\nfunction isEmptyValue(val) {\n  return val === undefined || val === null || (typeof val === 'string' && val.trim() === '');\n}\n\n/**\n * processWorker\n *\n * Compares the worker properties (including worker_status.slug) between the import and the existing object.\n * - If all relevant properties are empty and an existing worker is present, a DELETE command is issued.\n * - If not empty, and a worker exists, differences are checked and an UPDATE command is issued if needed.\n * - If no worker exists in the existing object, a CREATE command is issued.\n */\nfunction processWorker(workerid, objectToImport, existingObject) {\n\n  const commands = [];\n  const importWorker = objectToImport.worker || {};\n  // Extract the worker_status slug from the import\n  const importStatus = importWorker.worker_status ? importWorker.worker_status.slug : undefined;\n  \n  const workerCompareKeys = [\n    'title', 'last_name', 'first_name', 'sex', 'retired',\n    'mother_maiden_name', 'birth_last_name', 'birth_first_name',\n    'birth_country', 'birth_place','birth_date'\n  ];\n\n  // Determine if all the worker properties and status are empty.\n  let allEmpty = true;\n  for (const key of workerCompareKeys) {\n    if (!isEmptyValue(importWorker[key])) { \n      allEmpty = false; \n      break; \n    }\n  }\n  if (allEmpty && isEmptyValue(importStatus)) {\n    // If all fields are empty and an existing worker is present, issue a delete command.\n    if (existingObject && existingObject.id) {\n      commands.push({\n        type: \"worker/DELETE\",\n        value: { id: workerid }\n      });\n    }\n    return commands;\n  }\n\n  // Not all empty – decide between update and create.\n  if (existingObject && existingObject.id) {\n    // Compare each key between the import and the existing worker.\n    let changed = false;\n    for (const key of workerCompareKeys) {\n      if (importWorker[key] !== existingObject[key]) {\n        changed = true;\n        break;\n      }\n    }\n    // Also compare the worker_status.slug\n    const existingStatus = existingObject.worker_status ? existingObject.worker_status.slug : undefined;\n    if (importStatus !== existingStatus) { \n      changed = true; \n    }\n    if (changed === true) {\n      commands.push({\n        type: \"worker/UPDATE\",\n        value: {\n          id: workerid,\n          worker: {\n            ...importWorker,\n            status: importStatus\n          }\n        }\n      });\n    }\n  } else {\n    // No existing worker found: create a new worker.\n    commands.push({\n      type: \"worker/CREATE\",\n      value: {\n        id: workerid,\n        worker: {\n          ...importWorker,\n          status: importStatus\n        }\n      }\n    });\n  }\n  return commands;\n}\n\n/**\n * processWorkerAddress\n *\n * Uses the address property from the import to search for a matching address in existingObject.worker_addresses.\n * Lookup is done using the 'country' field.\n * Then, all address fields (compare keys) are compared:\n * - If all address fields are empty and a matching address exists, a DELETE command is issued.\n * - If not empty and a match is found but differences exist, an UPDATE command is issued.\n * - If not empty and no matching address is found, a CREATE command is issued.\n */\nfunction processWorkerAddress(workerid, objectToImport, existingObject) {\n  const commands = [];\n  const importAddress = objectToImport.address || {};\n  const addressLookupKeys = ['country'];\n  const addressCompareKeys = [\n    'city', 'postcode', 'area', 'area_type',\n    'number', 'building', 'stairway', 'floor', 'door'\n  ];\n\n  // Check if all address fields are empty.\n  let allEmpty = true;\n  for (const key of addressCompareKeys) {\n    if (!isEmptyValue(importAddress[key])) { \n      allEmpty = false; \n      break; \n    }\n  }\n\n  // Find a matching address using the lookup key(s)\n  \n  let matchingExisting = undefined;\n  if (existingObject.worker_addresses && Array.isArray(existingObject.worker_addresses)) {\n    \n    matchingExisting = existingObject.worker_addresses.find(addr => {{\n      if (addr.address) {\n        return addressLookupKeys.every(k => addr.address[k] === importAddress[k])  \n      }\n      return false;\n    }\n    });\n\n  }\n  \n  if (allEmpty === true) {\n    // If import address is empty and a matching address exists, issue a delete command.\n    if (matchingExisting) {\n      commands.push({\n        type: \"workerAddress/DELETE\",\n        value: {\n          id: workerid,\n          // Depending on your system you might include just an id or the full address object.\n          address: matchingExisting.address\n        }\n      });\n    }\n    return commands;\n  }\n  \n  // If not all empty: either update if a match exists or create a new address.\n  if (matchingExisting) {\n    let changed = false;\n    for (const key of addressCompareKeys) {\n      if (importAddress[key] !== matchingExisting.address[key]) {\n        changed = true;\n        break;\n      }\n    }\n    if (changed) {\n      commands.push({\n        type: \"workerAddress/UPDATE\",\n        value: {\n          id: workerid,\n          address: importAddress,\n          fromAddress: {\n            id: matchingExisting.id // reference to existing address id\n          }\n        }\n      });\n    }\n  } else {\n    commands.push({\n      type: \"workerAddress/CREATE\",\n      value: {\n        id: workerid,\n        address: importAddress\n      }\n    });\n  }\n  return commands;\n}\n\n/**\n * processWorkerAttributes\n *\n * Iterates over each attribute in objectToImport.attributes.\n * The lookup key is 'type' and the compare keys are ['type', 'value'].\n * - For an attribute that is entirely empty: if a matching attribute exists, issue a DELETE command.\n * - If not empty and a matching attribute is found but differs, issue an UPDATE command (including a fromAttribute reference).\n * - If not empty and no matching attribute is found, issue a CREATE command.\n * The command type is built dynamically using the attribute's type (for example: \"worker/CREATE_EMAIL\").\n */\nfunction processWorkerAttributes(workerid, objectToImport, existingObject) {\n  const commands = [];\n  const importAttributes = objectToImport.attributes || [];\n  const attributeLookupKeys = ['type'];\n  const attributeCompareKeys = ['value'];\n  const existingAttributes = existingObject.worker_attributes || [];\n\n  importAttributes.forEach(attr => {\n    // Determine if all compare keys are empty for this attribute.\n    let allEmpty = true;\n    for (const key of attributeCompareKeys) {\n      if (!isEmptyValue(attr[key])) { \n        allEmpty = false; \n        break;\n      }\n    }\n    // Find a matching attribute in the existing object.\n    let matchingExisting = existingAttributes.find(existing =>\n      attributeLookupKeys.every(k => existing[k] === attr[k])\n    );\n    const cmdTypeSuffix = (attr.type || \"\").toUpperCase();\n    const attributeName = cmdTypeSuffix.toLowerCase();\n\n    if (allEmpty) {\n      if (matchingExisting) {\n        commands.push({\n          type: `worker/DELETE_${cmdTypeSuffix}`,\n          value: {\n            id: workerid,\n            [attributeName]: matchingExisting.value,\n            fromAttribute: {\n              id: matchingExisting.id\n            }\n          }\n        });\n      }\n      return; // Skip further processing for this attribute.\n    }\n\n    if (matchingExisting) {\n      let changed = false;\n      for (const key of attributeCompareKeys) {\n        if (attr[key] !== matchingExisting[key]) {\n          changed = true;\n          break;\n        }\n      }\n      if (changed) {\n        commands.push({\n          type: `worker/UPDATE_${cmdTypeSuffix}`,\n          value: {\n            id: workerid,\n            [attributeName]: attr.value,\n            primary: attr.primary,\n            fromAttribute: {\n              id: matchingExisting.id\n            }\n          }\n        });\n      }\n    } else {\n      // No matching attribute found, so create a new one.\n      commands.push({\n        type: `worker/CREATE_${cmdTypeSuffix}`,\n        value: {\n          id: workerid,\n          primary: attr.primary,\n          [attributeName]: attr.value\n        }\n      });\n    }\n  });\n  return commands;\n}\n\n/**\n * processWorkerIdentifiers\n *\n * Processes each identifier in objectToImport.identifiers.\n * Lookup key: ['type'] and compare keys: ['identifier', 'type'].\n * Based on the comparison, if an identifier is empty and exists then a DELETE command is issued,\n * if it exists but is different then an UPDATE command is issued (with a fromIdentifier reference),\n * and if no match is found a CREATE command is issued.\n * The command type is dynamically built using the identifier's type (for example: \"worker/CREATE_TAX\").\n */\nfunction processWorkerIdentifiers(workerid, objectToImport, existingObject) {\n  const commands = [];\n  const importIdentifiers = objectToImport.identifiers || [];\n  const identifierLookupKeys = ['type', 'country'];\n  const identifierCompareKeys = ['identifier'];\n  const existingIdentifiers = existingObject.worker_identifiers || [];\n\n  importIdentifiers.forEach(ident => {\n    let allEmpty = true;\n    for (const key of identifierCompareKeys) {\n      if (!isEmptyValue(ident[key])) { \n        allEmpty = false; \n        break;\n      }\n    }\n    let matchingExisting = existingIdentifiers.find(existing => {\n      existing.country = existing.issuer.country;\n      return identifierLookupKeys.every(k => {\n        if (k === 'type') {\n          const iType = ident[k];\n          const eType = existing[k];\n          return eType === identifierTypeMAP[iType];\n        } else {\n          return existing[k] === ident[k]  \n        }\n      })\n    });\n    const cmdTypeSuffix = (ident.type || \"\").toUpperCase();\n\n    if (allEmpty) {\n      if (matchingExisting) {\n        commands.push({\n          type: `worker/DELETE_${cmdTypeSuffix}`,\n          value: {\n            id: workerid,\n            identifier: matchingExisting.identifier,\n            identifierId: matchingExisting.id\n          }\n        });\n      }\n      return;\n    }\n\n    if (matchingExisting) {\n      let changed = false;\n      for (const key of identifierCompareKeys) {\n        if (ident[key] !== matchingExisting[key]) {\n          changed = true;\n          break;\n        }\n      }\n      if (changed) {\n        commands.push({\n          type: `worker/UPDATE_${cmdTypeSuffix}`,\n          value: {\n            id: workerid,\n            identifier: ident.identifier,\n            country: ident.country,\n            primary: ident.primary,\n            fromIdentifier: {\n              id: matchingExisting.id\n            } \n          }\n        });\n      }\n    } else {\n      commands.push({\n        type: `worker/CREATE_${cmdTypeSuffix}`,\n        value: {\n          id: workerid,\n          country: ident.country,\n          primary: ident.primary,\n          identifier: ident.identifier\n        }\n      });\n    }\n  });\n  return commands;\n}\n\n/**\n * processWorkerBankAccount\n *\n * Uses the account object from objectToImport.account.\n * It looks for a match in existingObject.worker_bank_accounts using the 'account_number' as the lookup key.\n * Compare keys: ['account_number', 'sort_code', 'holder', 'bank_name', 'currency'].\n * - If all account fields are empty and a matching account exists, a DELETE command is issued.\n * - If the account exists but there are differences, an UPDATE command is issued with a fromBankAccount reference.\n * - If no match is found, a CREATE command is issued.\n */\nfunction processWorkerBankAccount(workerid, objectToImport, existingObject) {\n  const commands = [];\n  const importAccount = objectToImport.account || {};\n  const accountLookupKeys = ['account_number'];\n  const accountCompareKeys = ['sort_code', 'holder', 'bank_name', 'currency'];\n\n  let allEmpty = true;\n  for (const key of accountCompareKeys) {\n    if (!isEmptyValue(importAccount[key])) {\n      allEmpty = false;\n      break;\n    }\n  }\n\n  let matchingExisting = undefined;\n  if (existingObject.worker_bank_accounts && Array.isArray(existingObject.worker_bank_accounts)) {\n    matchingExisting = existingObject.worker_bank_accounts.find(acc =>\n      accountLookupKeys.every(k => acc.bank_account[k] === importAccount[k])\n    );\n  }\n\n  if (allEmpty) {\n    if (matchingExisting) {\n      commands.push({\n        type: \"workerBankAccount/DELETE\",\n        value: {\n          id: workerid,\n          account: matchingExisting\n        }\n      });\n    }\n    return commands;\n  }\n\n  if (matchingExisting) {\n    let changed = false;\n    for (const key of accountCompareKeys) {\n      if (importAccount[key] !== matchingExisting.bank_account[key]) {\n        changed = true;\n        break;\n      }\n    }\n    if (changed) {\n      commands.push({\n        type: \"workerBankAccount/UPDATE\",\n        value: {\n          id: workerid,\n          account: importAccount,\n          fromAccount: {\n            id: matchingExisting.id\n          }\n        }\n      });\n    }\n  } else {\n    commands.push({\n      type: \"workerBankAccount/CREATE\",\n      value: {\n        id: workerid,\n        account: importAccount\n      }\n    });\n  }\n  return commands;\n}\n\n/**\n * processWorkerVehicle\n *\n * Processes the vehicle object from objectToImport.vehicle.\n * The lookup key is 'licence_plate' and the compare keys are ['make', 'model', 'vin', 'country', 'licence_plate', 'type'].\n * - If all vehicle fields are empty and a matching vehicle exists, a DELETE command is issued.\n * - If a matching vehicle is found but differences exist, an UPDATE command is issued (with a fromVehicle reference).\n * - If no matching vehicle is found, a CREATE command is issued.\n */\nfunction processWorkerVehicle(workerid, objectToImport, existingObject) {\n  const commands = [];\n  const importVehicle = objectToImport.vehicle || {};\n  const vehicleLookupKeys = ['licence_plate'];\n  const vehicleCompareKeys = ['make', 'model', 'vin', 'country'];\n\n  let allEmpty = true;\n  for (const key of vehicleCompareKeys) {\n    if (!isEmptyValue(importVehicle[key])) {\n      allEmpty = false;\n      break;\n    }\n  }\n\n  let matchingExisting = undefined;\n  if (existingObject.worker_vehicles && Array.isArray(existingObject.worker_vehicles)) {\n    matchingExisting = existingObject.worker_vehicles.find(v => {\n      const veh = v.vehicle;\n      return vehicleLookupKeys.every(k => veh[k] === importVehicle[k])\n    });\n  }\n\n  if (allEmpty) {\n    if (matchingExisting) {\n      commands.push({\n        type: \"workerVehicle/DELETE\",\n        value: {\n          id: workerid\n        }\n      });\n    }\n    return commands;\n  }\n\n  if (matchingExisting && matchingExisting.vehicle) {\n    let changed = false;\n    for (const key of vehicleCompareKeys) {\n      if (importVehicle[key] !== matchingExisting.vehicle[key]) {\n        changed = true;\n        break;\n      }\n    }\n    if (changed) {\n      commands.push({\n        type: \"workerVehicle/UPDATE\",\n        value: {\n          id: workerid,\n          vehicle: importVehicle,\n          primary: true,\n          fromVehicle: {\n            id: matchingExisting.id\n          }\n        }\n      });\n    }\n  } else {\n    commands.push({\n      type: \"workerVehicle/CREATE\",\n      value: {\n        id: workerid,\n        vehicle: importVehicle\n      }\n    });\n  }\n  return commands;\n}\n\nconst loadedWorker = $json.loadedWorker;\nconst upsertedWorker = $json.upsertedWorker;\nconst loadedWorkerId = loadedWorker?.id || nanoid();\n\nconst commandFunctions = [\n    processWorker,\n    processWorkerAddress,\n    processWorkerAttributes,\n    processWorkerIdentifiers,\n    processWorkerBankAccount,\n    processWorkerVehicle\n];\n\nconst allCommands = [];\n\ncommandFunctions.forEach(fn => {\n    const result = fn(loadedWorkerId, upsertedWorker, loadedWorker);\n\n    // If the function returns an array of commands, add all of them.\n    if (Array.isArray(result)) {\n        allCommands.push(...result);\n    } else if (result) {\n        // If a single command object is returned and it's not null, push it.\n        allCommands.push(result);\n    }\n});\n\nreturn {\n    commands: allCommands\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        80
+      ],
+      "id": "bd8d3a38-4ad3-44f6-9ab5-861006119c53",
+      "name": "Create commands"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['BER_API_ENDPOINT'] }}/commandbus/dispatch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env['BER_API_AUTH_TOKEN']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"commands\": {{ JSON.stringify($json.commands) }}\n  }\n]\n",
+        "options": {}
+      },
+      "id": "816660f5-4408-44ab-8c2d-c456a96447e0",
+      "name": "Send commands to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1520,
+        80
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abc90ecf-8d35-4167-871c-fee991880ace",
+              "leftValue": "={{ $json.commands }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        280
+      ],
+      "id": "8ea22595-0b2c-4da6-8316-fac1817cc367",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n/**\n * Maps an array of CommandStatus objects to a list of strings according to these rules:\n * 1) If success and isValid are both true => \"type: ok\"\n * 2) If isValid is false => log validationErrors, return \"type: errors\"\n * 3) If success is false => log executionError, return \"type: errors\"\n * 4) Otherwise => \"type: unknown state\"\n */\nfunction mapCommandStatuses(commands) {\n  return commands.map(command => {\n    // 1) If both success and isValid are true => \"type: ok\"\n    if (command.success && command.isValid) {\n      return `${command.type}: ok`;\n    }\n\n    // 2) If isValid is false => list validationErrors, return \"type: errors\"\n    if (!command.isValid) {\n      const errors = command.validationErrors || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 3) If success is false => list executionError, return \"type: errors\"\n    if (!command.success) {\n      const errors = command.executionError || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 4) Fallback (unexpected state)\n    return `${command.type}: unknown state`;\n  });\n}\n\nconst results = mapCommandStatuses(data);\n\nreturn {\n  'response': results ? results.join(', '): 'empty'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        160
+      ],
+      "id": "ea4a40fe-dba5-49d0-898d-51f5a05344bd",
+      "name": "Convert response to string"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  'response': 'no change'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        480
+      ],
+      "id": "3cc63e9f-999f-40fb-988a-8dee583d96e7",
+      "name": "Set empty response"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=processed_{{ $('Form').item.json['File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        820,
+        -400
+      ],
+      "id": "cf19eb72-8b10-4478-9797-e7af8246ea10",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az Dolgozok feltoltes feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        },
+        "path": "0a601000-68a7-43e5-8d50-bcd94147f514"
+      },
+      "id": "4f8f9c80-4097-4bb2-bd7f-5ca08522c78a",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1240,
+        -400
+      ],
+      "webhookId": "0a601000-68a7-43e5-8d50-bcd94147f514",
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Jogi személyek importálása",
+        "formDescription": "Ez az űrlap lehetőséget biztosít dolgozók adatinak importálására. Kérjük, töltsd fel az xlsx kiterjesztésű fájlt, amely a dolgozók adatait tartalmazza, a Fájl mezőbe, majd add meg azt az email címet, amelyre a rendszer az importálás eredményét elküldi.\n\nAz importálási folyamat a következő lépéseket tartalmazza:\n\nFájl feltöltése: Az xlsx formátumú fájlban található dolgozók alapján történik az importálás.\n\nEredmény email: Az importálás befejezése után a rendszer automatikusan küld egy emailt a megadott címre, amely tartalmazza az importálási folyamat eredményét és esetleges hibajelentéseket.\n\nKérjük, győződj meg róla, hogy a feltöltött fájl helyes formátumban van, és a megadott email cím érvényes!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "*.xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A File feldolgozása megkezdödött"
+            }
+          }
+        },
+        "path": "17a90659-8655-4848-89fe-e09843b07ea3"
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -920,
+        40
+      ],
+      "id": "f0f49893-0ddb-433f-888a-80adfcb325ee",
+      "name": "Form",
+      "webhookId": "17a90659-8655-4848-89fe-e09843b07ea3"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Normalizes the input to return a single object.\n *\n * - If input is null, returns an empty object.\n * - If input is an array:\n *    - Returns the first element if the array is not empty.\n *    - Returns an empty object if the array is empty.\n * - If input is a single object, returns the object.\n *\n * @param {Object | Object[] | null} input - The input value to normalize.\n * @returns {Object} - A normalized object.\n */\nfunction normalizeInput(input) {\n  // Check if the input is null.\n  if (input === null) {\n    return {};\n  }\n  \n  // Check if the input is an array.\n  if (Array.isArray(input)) {\n    // Return the first element if available, otherwise an empty object.\n    return input.length ? input[0] : {};\n  }\n  \n  // If it's a single object, return it as is.\n  if (typeof input === 'object') {\n    return input;\n  }\n  \n  // Fallback: in unexpected cases, return an empty object.\n  return {};\n}\n\nfunction processDates(worker) {\n  if (worker && worker.birth_date) {\n      worker.birth_date = worker.birth_date.split(\"-\").join(\".\");\n  }\n  return worker;\n}\n\nconst worker = normalizeInput($input.item.json.data?.worker || {});\n\nreturn {\n  loadedWorker:  processDates(worker)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        60
+      ],
+      "id": "fb44e297-c108-4bee-8689-a4fee385ed10",
+      "name": "LoadedWorker"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Extract worker attributes (email and phone)\nfunction extractWorkerAttributes(data) {\n  const national = data.worker_attributes_nationality || \"\";\n  const email = data.worker_attributes_email || \"\";\n  // Construct the phone string using country, region and number:\n  const phoneCountry = data.worker_attributes_phone_country || \"\";\n  const phoneRegion  = data.worker_attributes_phone_region || \"\";\n  const phoneNumber  = data.worker_attributes_phone_number || \"\";\n  const primary =  data.primary;\n  const phone = phoneCountry && phoneRegion && phoneNumber\n    ? `+${phoneCountry}${phoneRegion}${phoneNumber}`\n    : \"\";\n  \n  return [\n    { type: \"EMAIL\", value: email, primary: primary },\n    { type: \"PHONE\", value: phone, primary: primary },\n    { type: \"NATIONALITY\", value: national, primary: primary }\n  ];\n}\n\n// Extract worker vehicle integration\nfunction extractWorkerVehicle(data) {\n  // Note: our data does not include a VIN or a specific type.\n  // You can adjust defaults as needed.\n  return {\n    make: data.worker_vehicle_make || \"\",\n    model: data.worker_vehicle_model || \"\",\n    vin: data.worker_vehicle_vin || \"\",\n    country: data.worker_vehicle_country || \"\",\n    licence_plate: data.worker_vehicle_licence_plate || \"\",\n    primary: data.primary || true,\n    // If no type is provided, you might want to assign a default or leave it empty:\n    type: data.worker_vehicle_type || \"\"\n  };\n}\n\n// Extract worker bank account information\nfunction extractWorkerBankAccount(data) {\n  return {\n    account_number: data.worker_bank_account_account_number || \"\",\n    sort_code: data.worker_bank_account_sort_code || \"\",\n    holder: data.worker_bank_account_holder || \"\",\n    // Our input does not provide a bank name; you can set a default or leave it blank.\n    bank_name: data.worker_bank_account_bank_name || \"\",\n    currency: data.worker_bank_account_currency || \"\"\n  };\n}\n\n// Extract the worker’s basic info\nfunction extractWorker(data) {\n  return {\n    uid: data.worker_uid || \"\",\n    title: data.worker_title || \"\",\n    last_name: data.worker_last_name || \"\",\n    first_name: data.worker_first_name || \"\",\n    sex: data.worker_sex || \"\",\n    retired: Boolean(data.worker_retired), // converts 0/1 to false/true\n    mother_maiden_name: data.worker_mother_name || \"\",\n    birth_last_name: data.worker_birth_last_name || \"\",\n    birth_first_name: data.worker_birth_first_name || \"\",\n    birth_date: data.worker_birth_date || \"\",\n    birth_country: data.worker_birth_country || \"\",\n    birth_place: data.worker_birth_place || \"\",\n    worker_status: {\n      slug: data.worker_status || \"\"\n    }}\n}\n\n// Extract worker identifiers (tax and NI)\nfunction extractWorkerIdentifiers(data) {\n  return [\n    {\n      identifier: data.worker_identifier_tax_number ? String(data.worker_identifier_tax_number) : \"\",\n      type: \"TAX\",\n      primary: data.primary,\n      country: data.worker_identifier_tax_number_country || \"\"\n    },\n    {\n      identifier: data.worker_identifier_ni_number ? String(data.worker_identifier_ni_number) : \"\",\n      type: \"NI\",\n      primary: data.primary,\n      country: data.worker_identifier_ni_number_country || \"\"\n    }\n  ];\n}\n\n// Extract worker address\nfunction extractWorkerAddress(data) {\n  return {\n    country: data.worker_address_country || \"\",\n    city: data.worker_address_city || \"\",\n    postcode: data.worker_address_post_code ? String(data.worker_address_post_code) : \"\",\n    area: data.worker_address_area || \"\",\n    area_type: data.worker_address_area_type || \"\",\n    number: data.worker_address_area_number ? String(data.worker_address_area_number) : \"\",\n    building: data.worker_address_area_building ? String(data.worker_address_area_building) : \"\",\n    // The input does not contain stairway information:\n    stairway: \"\",\n    floor: data.worker_address_area_floor !== undefined ? String(data.worker_address_area_floor) : \"\",\n    door: data.worker_address_area_door !== undefined ? String(data.worker_address_area_door) : \"\"\n  };\n}\n\nconst data = $input.item.json;\nconst attributes = extractWorkerAttributes(data);\nconst vehicle = extractWorkerVehicle(data);\nconst account = extractWorkerBankAccount(data);\nconst worker = extractWorker(data);\nconst identifiers = extractWorkerIdentifiers(data);\nconst address = extractWorkerAddress(data);\n\n\nreturn {\n  upsertedWorker: {\n      worker,  \n      attributes,\n      identifiers,\n      address,\n      account,\n      vehicle\n  }\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        520
+      ],
+      "id": "e4f6fe41-23d1-4845-ab17-a2f20c53c1ad",
+      "name": "UpsertedWorker"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        820,
+        280
+      ],
+      "id": "885bf308-9bae-43f4-979d-05b449149064",
+      "name": "Merge New with Existing"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        60,
+        40
+      ],
+      "id": "e45bce89-932f-4cd2-9ef9-6d575df3dc3a",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        980
+      ],
+      "id": "95a7dd6d-4fc8-4edd-be81-bac3e862fe95",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "={{$env['BER_GRAPHQL_ENDPOINT']}}",
+        "query": "query getWorker($limit: Int, $offset: Int, $workerWhere: worker_bool_exp, $sort: [worker_order_by!]) {\n  worker(limit: $limit, offset: $offset, where: $workerWhere) {\n    id,\n    uid\n    title,\n    last_name\n    first_name\n    sex    \n    archived\n    retired,\n    mother_maiden_name,\n    birth_last_name,\n    birth_first_name,\n    birth_date,\n    birth_country\n    birth_place\n    worker_status {\n      slug,\n      name\n    }\n    worker_addresses(where: {_and: {archived: {_eq: \"ACTIVE\"}, to: {_is_null: true}}}) {\n      id\n      from\n      to\n      type\n      address {\n        id\n        country\n        city\n        postcode\n        area\n        area_type\n        number\n        building\n        stairway\n        floor\n        door\n      }\n      from\n      to\n      archived\n    }\n\t\tworker_bank_accounts(where: {_and: {archived: {_eq: \"ACTIVE\"}, to: {_is_null: true}}}) {\n      id\n      from\n      to\n      note\n      bank_account {\n        account_number\n        sort_code\n        holder\n        bank_name\n        currency\n      }\n      from\n      to\n      archived\n    }\n    worker_identifiers(where: {archived: {_eq: \"ACTIVE\"}}) {\n      id\n      identifier\n      from\n      to\n      type\n      primary\n      issuer {\n        id\n        name\n        country\n      }\n    }\n    worker_integrations(where: {archived: {_eq: \"ACTIVE\"}}) {\n      id\n      identifier\n      from\n      to\n      integration {\n        id\n        name\n        slug\n      }\n    }\n    worker_attributes(where: {archived: {_eq: \"ACTIVE\"}}) {\n      id\n      type\n      value\n      primary\n    }\n    worker_vehicles(where: {archived: {_eq: \"ACTIVE\"}}) {\n      id\n      from\n      to\n      primary\n      vehicle {\n        id\n        make\n        model\n        vin\n        country\n        licence_plate\n        type        \n      }\n    }\n  }\n}\n",
+        "variables": "={\n  \"limit\": 1,\n  \"offset\": 0,\n  \"workerWhere\": {\n   \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"uid\": {\n          \"_eq\": \"{{ $json.worker_uid }}\"\n        }\n      }\n    ]\n  }\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        380,
+        60
+      ],
+      "id": "1c423174-4113-4664-91e6-6c42dcf9b49d",
+      "name": "Load Worker",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Y4AtWUgOfsqxWN4R",
+          "name": "Hasura Admin Secret"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove invalid entries": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create commands": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send commands to API": {
+      "main": [
+        [
+          {
+            "node": "Convert response to string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send commands to API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set empty response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert response to string": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set empty response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoadedWorker": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertedWorker": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge New with Existing": {
+      "main": [
+        [
+          {
+            "node": "Create commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UpsertedWorker",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Worker",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Worker": {
+      "main": [
+        [
+          {
+            "node": "LoadedWorker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "fbd33ade-b08d-4306-aa2a-6c339a0814c7",
+  "triggerCount": 2,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-09-08T04:17:25.780Z",
+      "updatedAt": "2025-09-08T04:17:25.780Z",
+      "role": "workflow:owner",
+      "workflowId": "1yzXVirNoT1BSRdy",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

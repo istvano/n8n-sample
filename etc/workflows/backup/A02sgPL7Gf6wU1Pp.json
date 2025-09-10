@@ -1,0 +1,591 @@
+{
+  "createdAt": "2025-03-07T12:34:51.150Z",
+  "updatedAt": "2025-04-02T11:39:47.747Z",
+  "id": "A02sgPL7Gf6wU1Pp",
+  "name": "Import Legal Person",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a1b65a-0f17-4af4-a6ba-ffd34b643618",
+              "leftValue": "={{ $json.code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3ff997b1-71a4-45b0-b832-869e0adf47d2",
+              "leftValue": "={{ $json.code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        40
+      ],
+      "id": "f28bf4c0-e9c9-49b5-a3f9-bc27bcb84260",
+      "name": "Remove invalid entries"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "={{$env['BER_GRAPHQL_ENDPOINT']}}",
+        "query": "query getLegalPerson($limit: Int, $offset: Int, $legalPersonWhere: legal_person_bool_exp, $sort: [legal_person_order_by!]) {\n  legal_person(limit: $limit, offset: $offset, where: $legalPersonWhere) {\n    id\n    code\n    archived\n    name\n    country\n    region {\n      id\n      name\n      country\n    }\n    legal_person_types {\n      type      \n    }\n    legal_person_addresses(where: {_and: {archived: {_eq: \"ACTIVE\"}, to: {_is_null: true}}}) {\n      id\n      address {\n        id\n        city\n        postcode\n        area\n        area_type\n        number\n        building\n        stairway\n        floor\n        door\n      }\n      from\n      to\n      archived\n    }\n    legal_person_identifiers(where: {_and: {archived: {_eq: \"ACTIVE\"}, to: {_is_null: true}}}) {\n      id\n      identifier\n      country\n      from\n      to\n      issuer {\n        id\n        name\n      }\n      type\n      primary\n    }\n    legal_person_integrations(where: {_and: {archived: {_eq: \"ACTIVE\"}, to: {_is_null: true}}}) {\n      id\n      identifier\n      integration {\n        id\n        name\n        slug\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"limit\": 1,\n  \"offset\": 0,\n  \"legalPersonWhere\": {\n    \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"code\": {\n          \"_ilike\": \"{{ $json.code }}\"\n        }\n      }\n    ]\n  }\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        60
+      ],
+      "id": "4b0511ac-e7b7-4d7b-a3a7-a84e42bbb20f",
+      "name": "Load legal person",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Y4AtWUgOfsqxWN4R",
+          "name": "Hasura Admin Secret"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        -260
+      ],
+      "id": "1ccb229b-a1a9-472f-b6ec-8f6ae5753753",
+      "name": "When clicking ‘Test workflow’",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { nanoid } = require('nanoid');\n\n/**\n * Safely converts a value to a string.\n *\n * @param {*} value - The value to be converted.\n * @param {string} [defaultValue=\"\"] - The default value to return if the input is null or undefined.\n * @returns {string} The string representation of the value, or the default value.\n */\nfunction safeGet(value, defaultValue = \"\") {\n  return (value !== undefined && value !== null) ? value.toString() : defaultValue;\n}\n\n/**\n * Creates commands to process the legal person's address based on comparison between the loaded\n * legal person's current address(es) and the upserted legal person address fields.\n *\n * @param {Object|null} loadedLegalPerson - The existing legal person object (if any)\n * @param {Object} upsertedLegalPerson - The new legal person data containing address fields (prefixed with \"address_\")\n * @returns {Array<Object>} An array of commands (empty if no address change is needed)\n */\nfunction createLegalPersonAddressCommands(legalPersonId, loadedLegalPerson, upsertedLegalPerson) {\n  // Build the new address from upsertedLegalPerson fields.\n  const newAddress = {\n    country: upsertedLegalPerson.address_country,\n    postcode: safeGet(upsertedLegalPerson.address_post_code),    \n    city: upsertedLegalPerson.address_city,\n    street: upsertedLegalPerson.address_street,\n    number: safeGet(upsertedLegalPerson.address_number)\n  };\n\nif (\n  newAddress.country &&\n  newAddress.postcode &&\n  newAddress.city &&\n  newAddress.street\n) {\n  \n    const legalPersonCode = (loadedLegalPerson && loadedLegalPerson.code) ? loadedLegalPerson.code : upsertedLegalPerson.code;\n  \n    // If a loaded legal person exists, process its existing addresses.\n    if (loadedLegalPerson && Object.keys(loadedLegalPerson).length > 0) {\n      const addresses = loadedLegalPerson.legal_person_addresses || [];\n      \n      // If there is at least one existing address, compare it with the new address.\n      if (addresses.length > 0) {\n        const existingAddrObj = addresses[0];\n        const existingAddress = {\n          // Note: We use the legal person's top-level country for comparison.\n          country: loadedLegalPerson.country,\n          postcode: safeGet(existingAddrObj.address?.postcode),\n          city: existingAddrObj.address.city,\n          street: existingAddrObj.address.area,\n          number: safeGet(existingAddrObj.address?.number)\n        };\n  \n        const isSame = existingAddress.country === newAddress.country &&\n                       existingAddress.postcode === newAddress.postcode &&\n                       existingAddress.city === newAddress.city &&\n                       existingAddress.street === newAddress.street &&\n                       existingAddress.number === newAddress.number;\n  \n        if (isSame) {\n          // The address is unchanged. No commands are needed.\n          return [];\n        } else {\n          // The address has changed. Create a CHANGE_LEGAL_PERSON_ADDRESS command.\n          return [{\n            type: \"legalPersonAddress/CHANGE\",\n            value: {\n              id: legalPersonId,\n              code: legalPersonCode,\n              fromAddress: {\n                id: existingAddrObj.id\n              },\n              toAddress: newAddress\n            }\n          }];\n        }\n      } else {\n        // No existing address is found. Create a new address command.\n        return [{\n          type: \"legalPersonAddress/CREATE\",\n          value: {\n            id: legalPersonId,\n            code: legalPersonCode,\n            toAddress: newAddress\n          }\n        }];\n      }\n    } else {\n      // No loaded legal person exists: create a new legal person address command.\n      return [{\n        type: \"legalPersonAddress/CREATE\",\n        value: {\n          id: legalPersonId,\n          code: legalPersonCode,\n          toAddress: newAddress\n        }\n      }];\n    }\n  } else {\n    return [];\n  }\n}\n\n/**\n * Creates a legal person command.\n *\n * @param {Object|null} loadedLegalPerson - The existing legal person object (if any).\n * @param {Object} upsertedLegalPerson - The new data to be upserted.\n * @returns {Object} The command to update or create the legal person.\n */\nfunction createLegalPersonCommand(legalPersonId, loadedLegalPerson, upsertedLegalPerson) {\n  // If loadedLegalPerson is null/undefined or an empty object, we need to create a new legal person.\n  const isCreate = !loadedLegalPerson || Object.keys(loadedLegalPerson).length === 0;\n  \n  if (isCreate) {\n    return {\n      type: \"legalPerson/CREATE\",\n      value: {\n        // Generate a new id using nanoid\n        id: legalPersonId,\n        name: upsertedLegalPerson.name,\n        // Assuming upsertedLegalPerson.address_country holds the country code (e.g., \"AUT\")\n        country: upsertedLegalPerson.address_country,\n        // For creation, include additional fields like code\n        code: upsertedLegalPerson.code\n      }\n    };\n  } else {\n    // For an update, we use the id from the existing legal person.\n    if (loadedLegalPerson.name === upsertedLegalPerson.name) {\n        return null;\n    }\n\n    return {\n      type: \"legalPerson/UPDATE\",\n      value: {\n        id: loadedLegalPerson.id,\n        name: upsertedLegalPerson.name,\n        country: upsertedLegalPerson.address_country\n      }\n    };\n  }\n}\n\nfunction compareAsString(a, b) {\n    const normalize = (value) =>\n      value === null || value === undefined ? '' : String(value);\n      \n    return normalize(a) === normalize(b);\n  }\n\n/**\n * Creates a command for handling the legal person's organization code (org_code).\n *\n * Scenarios:\n * 1. If loadedLegalPerson is null or an empty object, create a CREATE_LEGAL_PERSON_ORG_CODE command.\n * 2. If loadedLegalPerson exists and has a legal_person_identifiers array with an element where type === \"ORG_CODE\":\n *    - If the existing identifier's value is the same as the new org_code, do nothing (return null).\n *    - Otherwise, create an UPDATE_LEGAL_PERSON_ORG_CODE command.\n * 3. If loadedLegalPerson exists but no ORG_CODE type element is found, create a CREATE_LEGAL_PERSON_ORG_CODE command.\n * @param {Object|null} loadedLegalPerson - The existing legal person object, or null if not found.\n * @param {Object} upsertedLegalPerson - The new legal person data containing the org_code field and possibly the code.\n * @returns {Object|null} The command object for creating or updating the legal person's org_code,\n *                         or null if no update is needed.\n */\nfunction createLegalPersonOrgCodeCommand(legalPersonId, loadedLegalPerson, upsertedLegalPerson) {\n  const legalPersonCode = (loadedLegalPerson && loadedLegalPerson.code) ? loadedLegalPerson.code : upsertedLegalPerson.code;\n\n  // Get the org_code from the upserted data.\n  const orgCode = upsertedLegalPerson.org_code;\n  if (!orgCode) {\n    return null;\n  }\n\n  // If there is no loaded legal person, create a new org code command.\n  if (!loadedLegalPerson || Object.keys(loadedLegalPerson).length === 0) {\n    return {\n      type: \"legalPerson/CREATE_ORG_CODE\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        org_code: orgCode,\n        primary: true\n      }\n    };\n  }\n\n  // For an existing legal person, check for an existing ORG_CODE identifier.\n  const identifiers = loadedLegalPerson.legal_person_identifiers || [];\n  const orgCodeIdentifier = identifiers.find(identifier => identifier.type === \"ORG_CODE\");\n\n  if (orgCodeIdentifier) {\n    // If the existing ORG_CODE identifier matches the new orgCode, no update is needed.\n    if (compareAsString(orgCodeIdentifier.identifier, orgCode)) {\n      return null;\n    }\n    // Otherwise, create an update command.\n    return {\n      type: \"legalPerson/CHANGE_ORG_CODE\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        org_code: orgCode,\n        primary: true\n      }\n    };\n  } else {\n    // No ORG_CODE identifier exists; create one.\n    return {\n      type: \"legalPerson/CREATE_ORG_CODE\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        org_code: orgCode,\n        primary: true\n      }\n    };\n  }\n}\n\n/**\n * Creates a command for handling the legal person's tax number.\n *\n * Scenarios:\n * 1. If loadedLegalPerson is null or an empty object, create a CREATE_LEGAL_PERSON_TAX_NUMBER command.\n * 2. If loadedLegalPerson exists and has a TAXN identifier:\n *    - If its value (identifier) is the same as the new uid, do not create any command (return null).\n *    - Otherwise, create an UPDATE_LEGAL_PERSON_TAX_NUMBER command.\n * 3. If loadedLegalPerson exists but does not have a TAXN identifier, create a CREATE_LEGAL_PERSON_TAX_NUMBER command.\n *\n * @param {Object|null} loadedLegalPerson - The existing legal person object, or null if not found.\n * @param {Object} upsertedLegalPerson - The new legal person data containing the uid (tax number) and possibly the code.\n * @returns {Object|null} The command object for creating or updating the legal person's tax number,\n *                         or null if no update is needed.\n */\nfunction createLegalPersonTaxNumberCommand(legalPersonId, loadedLegalPerson, upsertedLegalPerson) {\n\n  const legalPersonCode = (loadedLegalPerson && loadedLegalPerson.code) ? loadedLegalPerson.code : upsertedLegalPerson.code;\n\n  // Get the tax code from the upserted data.\n  const taxCode = upsertedLegalPerson.uid;\n\n  // If there is no loaded legal person, create a new tax number.\n  if (!loadedLegalPerson || Object.keys(loadedLegalPerson).length === 0) {\n    return {\n      type: \"legalPerson/CREATE_TAX_NUMBER\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        taxcode: taxCode,\n        primary: true\n      }\n    };\n  }\n\n  // For an existing legal person, check for an existing TAXN identifier.\n  const identifiers = loadedLegalPerson.legal_person_identifiers || [];\n  const taxIdentifier = identifiers.find(identifier => identifier.type === \"TAXN\");\n\n  if (taxIdentifier) {\n    // If the existing TAXN identifier matches the new taxCode, no update is needed.\n    if (taxIdentifier.identifier === taxCode) {\n      return null;\n    }\n    // Otherwise, create an update command.\n    return {\n      type: \"legalPerson/CHANGE_TAX_NUMBER\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        primary: true,\n        taxcode: taxCode\n      }\n    };\n  } else {\n    // No TAXN identifier exists; create one.\n    return {\n      type: \"legalPerson/CREATE_TAX_NUMBER\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        taxcode: taxCode,\n        primary: true\n      }\n    };\n  }\n}\n\n/**\n * Creates a command for handling the legal person's JIRA identifier (ext_jira).\n *\n * Scenarios:\n * 1. If loadedLegalPerson is null or an empty object, create a CREATE_LEGAL_PERSON_JIRA_IDENTIFIER command.\n * 2. If loadedLegalPerson exists:\n *    - Filter the legal_person_integrations array to find an element where:\n *         a) It has an \"identifier\" property.\n *         b) Its \"integration.slug\" equals \"jira\".\n *    - If found:\n *         - If its \"identifier\" matches the new ext_jira, no command is needed (return null).\n *         - Otherwise, create an UPDATE_LEGAL_PERSON_JIRA_IDENTIFIER command.\n *    - If not found, create a CREATE_LEGAL_PERSON_JIRA_IDENTIFIER command.\n *\n * @param {Object|null} loadedLegalPerson - The existing legal person object, or null if not found.\n * @param {Object} upsertedLegalPerson - The new legal person data containing ext_jira and possibly the code.\n * @returns {Object|null} The command object for creating or updating the legal person's JIRA identifier,\n *                         or null if no update is needed.\n */\nfunction createLegalPersonJiraIdentifierCommand(legalPersonId, loadedLegalPerson, upsertedLegalPerson) {\n  \n  const legalPersonCode = (loadedLegalPerson && loadedLegalPerson.code) ? loadedLegalPerson.code : upsertedLegalPerson.code;\n\n  // Get the JIRA identifier from the upserted data.\n  const extJira = upsertedLegalPerson.ext_jira;\n\n  // If there is no loaded legal person or it's empty, create the identifier.\n  if (!loadedLegalPerson || Object.keys(loadedLegalPerson).length === 0) {\n    return {\n      type: \"legalPerson/CREATE_JIRA_ID\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        identifier: extJira\n      }\n    };\n  }\n\n  // For an existing legal person, filter the legal_person_integrations for an entry with integration.slug === \"jira\".\n  const integrations = loadedLegalPerson.legal_person_integrations || [];\n  const jiraIntegration = integrations.find(entry =>\n    entry.integration && entry.integration.slug === \"jira\" && entry.identifier !== undefined\n  );\n\n  if (jiraIntegration) {\n    // If the existing identifier matches the new ext_jira, no update is needed.\n    if (jiraIntegration.identifier === extJira) {\n      return null;\n    }\n    // Otherwise, update the JIRA identifier.\n    return {\n      type: \"legalPerson/CHANGE_JIRA_ID\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        identifier: extJira\n      }\n    };\n  } else {\n    // No JIRA integration found; create one.\n    return {\n      type: \"legalPerson/CREATE_JIRA_ID\",\n      value: {\n        id: legalPersonId,\n        code: legalPersonCode,\n        identifier: extJira\n      }\n    };\n  }\n}\n\n/**\n * Creates commands for updating legal person type mappings (borrower, lender, deductor).\n *\n * If loadedLegalPerson is null or does not have a legal_person_types property,\n * only fields with a value of 1 will result in a MAKE command.\n *\n * If loadedLegalPerson exists and has legal_person_types, then for each type:\n *  - If the upserted value is 1 and the mapping doesn't exist, create a MAKE command.\n *  - If the upserted value is 0 and the mapping exists, create a REMOVE command.\n *  - Otherwise, no command is needed.\n *\n * @param {Object|null} loadedLegalPerson - The existing legal person object, or null if not present.\n * @param {Object} upsertedLegalPerson - The new legal person data containing boolean fields:\n *                                         borrower, lender, and deductor.\n * @returns {Array<Object>} An array of commands for adjusting legal person types.\n */\nfunction createLegalPersonTypeCommands(legalPersonId, loadedLegalPerson, upsertedLegalPerson) {\n  const commands = [];\n  \n  const legalPersonCode = (loadedLegalPerson && loadedLegalPerson.code) ? loadedLegalPerson.code : upsertedLegalPerson.code;\n\n  // Define type configurations for borrower, lender, and deductor.\n  // Note: For deductor, we use the mapping type \"DEDUCTION_PARTY\".\n  const types = [\n    { field: 'borrower', mapping: 'BORROWER', makeCommand: \"legalPerson/MAKE_BORROWER\", removeCommand: \"legalPerson/REMOVE_BORROWER\" },\n    { field: 'lender', mapping: 'LENDER', makeCommand: \"legalPerson/MAKE_LENDER\", removeCommand: \"legalPerson/REMOVE_LENDER\" },\n    { field: 'deductor', mapping: 'DEDUCTION_PARTY', makeCommand: \"legalPerson/MAKE_DEDUCTOR\", removeCommand: \"legalPerson/REMOVE_DEDUCTOR\" },\n  ];\n\n  // Check if loadedLegalPerson exists and has legal_person_types.\n  const hasTypeMaps = loadedLegalPerson && Array.isArray(loadedLegalPerson.legal_person_types);\n\n  types.forEach(({ field, mapping, makeCommand, removeCommand }) => {\n    const state = upsertedLegalPerson[field]; // Expect 1 (true) or 0 (false)\n\n    if (!hasTypeMaps) {\n      // No loaded legal person or no type maps:\n      // Only create a MAKE command when the new state is 1.\n      if (state === true) {\n        commands.push({\n          type: makeCommand,\n          value: {\n            id: legalPersonId,\n            code: legalPersonCode,\n          }\n        });\n      }\n    } else {\n      // loadedLegalPerson exists and has legal_person_types.\n      const mappingExists = loadedLegalPerson.legal_person_types.some(\n        (map) => map.type && map.type === mapping\n      );\n\n      if (state === true && !mappingExists) {\n        // New state is true, but the mapping is missing → create a MAKE command.\n        commands.push({\n          type: makeCommand,\n          value: {\n            id: legalPersonId,\n            code: legalPersonCode,\n          }\n        });\n      } else if (state === false && mappingExists) {\n        // New state is false, but a mapping exists → create a REMOVE command.\n        commands.push({\n          type: removeCommand,\n          value: {\n            id: legalPersonId,\n            code: legalPersonCode,\n          }\n        });\n      }\n      // If state === 1 and mapping exists, or state === 0 and mapping doesn't exist, do nothing.\n    }\n  });\n\n  return commands;\n}\n\nconst commandFunctions = [\n  createLegalPersonCommand,\n  createLegalPersonAddressCommands,\n  createLegalPersonTaxNumberCommand,\n  createLegalPersonOrgCodeCommand,\n  createLegalPersonJiraIdentifierCommand,\n  createLegalPersonTypeCommands\n]\n  \n// Add a new field called 'myNewField' to the JSON of the item\nconst data = $input.item.json;\nconst loadedLegalPerson = data.loadedLegalPerson;\nconst upsertedLegalPerson = data.upsertedLegalPerson;\n\n// Determine the legal person id and code.\n  // If the legal person exists, use its id and code; otherwise generate a new id.\n  const legalPersonId = (loadedLegalPerson && loadedLegalPerson.id) ? loadedLegalPerson.id : nanoid();\n\n\nconst allCommands = [];\n\ncommandFunctions.forEach(fn => {\n  const result = fn(legalPersonId, loadedLegalPerson, upsertedLegalPerson);\n  \n  // If the function returns an array of commands, add all of them.\n  if (Array.isArray(result)) {\n    allCommands.push(...result);\n  } else if (result) {\n    // If a single command object is returned and it's not null, push it.\n    allCommands.push(result);\n  }\n});\n  \nreturn {\n  commands: allCommands\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        80
+      ],
+      "id": "dacc486a-cafc-46c8-bb69-8b391110eca7",
+      "name": "Create commands"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['BER_API_ENDPOINT'] }}/commandbus/dispatch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env['BER_API_AUTH_TOKEN']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"commands\": {{ JSON.stringify($json.commands) }}\n  }\n]\n",
+        "options": {}
+      },
+      "id": "c1d9a4d2-7ccf-4b70-ab54-5f490077a267",
+      "name": "Send commands to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1740,
+        80
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abc90ecf-8d35-4167-871c-fee991880ace",
+              "leftValue": "={{ $json.commands }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        280
+      ],
+      "id": "524ce044-78e7-46a7-9baf-570ec8ebffef",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n/**\n * Maps an array of CommandStatus objects to a list of strings according to these rules:\n * 1) If success and isValid are both true => \"type: ok\"\n * 2) If isValid is false => log validationErrors, return \"type: errors\"\n * 3) If success is false => log executionError, return \"type: errors\"\n * 4) Otherwise => \"type: unknown state\"\n */\nfunction mapCommandStatuses(commands) {\n  return commands.map(command => {\n    // 1) If both success and isValid are true => \"type: ok\"\n    if (command.success && command.isValid) {\n      return `${command.type}: ok`;\n    }\n\n    // 2) If isValid is false => list validationErrors, return \"type: errors\"\n    if (!command.isValid) {\n      const errors = command.validationErrors || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 3) If success is false => list executionError, return \"type: errors\"\n    if (!command.success) {\n      const errors = command.executionError || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 4) Fallback (unexpected state)\n    return `${command.type}: unknown state`;\n  });\n}\n\nconst results = mapCommandStatuses(data);\n\nreturn {\n  'response': results ? results.join(', '): 'empty'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2120,
+        160
+      ],
+      "id": "24da181d-3483-4b3a-8053-8a6b16fb0c44",
+      "name": "Convert response to string"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  'response': 'no change'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1940,
+        480
+      ],
+      "id": "2ade0500-1502-432f-9ea5-044e7849f580",
+      "name": "Set empty response"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=processed_{{ $('Form').item.json['File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        -400
+      ],
+      "id": "bb545842-4441-4b19-93b8-e3d2cd254561",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az Jogi szemelyek feltoltes feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "58c53112-26e1-4acb-901c-aec84a8b9363",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1460,
+        -400
+      ],
+      "webhookId": "ed75edf3-2959-488b-9e65-b8a3dabd3540",
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Jogi személyek importálása",
+        "formDescription": "Ez az űrlap lehetőséget biztosít jogi személyek adatinak importálására. Kérjük, töltsd fel az xlsx kiterjesztésű fájlt, amely a jogi személyek adatait tartalmazza, a Fájl mezőbe, majd add meg azt az email címet, amelyre a rendszer az importálás eredményét elküldi.\n\nAz importálási folyamat a következő lépéseket tartalmazza:\n\nFájl feltöltése: Az xlsx formátumú fájlban található jogi személyek adatai alapján történik az importálás.\n\nEredmény email: Az importálás befejezése után a rendszer automatikusan küld egy emailt a megadott címre, amely tartalmazza az importálási folyamat eredményét és esetleges hibajelentéseket.\n\nKérjük, győződj meg róla, hogy a feltöltött fájl helyes formátumban van, és a megadott email cím érvényes!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "*.xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A File feldolgozása megkezdödött"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -920,
+        40
+      ],
+      "id": "c58f78bb-f1b7-459c-b17f-9f21717c384f",
+      "name": "Form",
+      "webhookId": "2dd862fb-059a-41bc-84eb-e64b689f0994"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Normalizes the input to return a single object.\n *\n * - If input is null, returns an empty object.\n * - If input is an array:\n *    - Returns the first element if the array is not empty.\n *    - Returns an empty object if the array is empty.\n * - If input is a single object, returns the object.\n *\n * @param {Object | Object[] | null} input - The input value to normalize.\n * @returns {Object} - A normalized object.\n */\nfunction normalizeInput(input) {\n  // Check if the input is null.\n  if (input === null) {\n    return {};\n  }\n  \n  // Check if the input is an array.\n  if (Array.isArray(input)) {\n    // Return the first element if available, otherwise an empty object.\n    return input.length ? input[0] : {};\n  }\n  \n  // If it's a single object, return it as is.\n  if (typeof input === 'object') {\n    return input;\n  }\n  \n  // Fallback: in unexpected cases, return an empty object.\n  return {};\n}\n\nreturn {\n  loadedLegalPerson:  normalizeInput($input.item.json.data?.legal_person || null)  \n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        0
+      ],
+      "id": "0a24d0f8-1b3e-4911-a448-4c3821506bf1",
+      "name": "LoadedWorker"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  upsertedLegalPerson: $input.item.json\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        520
+      ],
+      "id": "684aa8fe-332e-498b-aa40-2221eacf6151",
+      "name": "UpsertedWorker"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1040,
+        280
+      ],
+      "id": "9cf74d73-faad-42e2-ba5b-dd3bfce3716f",
+      "name": "Merge New with Existing"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        280,
+        40
+      ],
+      "id": "4761ac15-3c91-4e1e-b961-34535ed019eb",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2380,
+        980
+      ],
+      "id": "32ae5374-8bc9-4bfc-8eae-cef5d2a57de9",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "File",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -520,
+        40
+      ],
+      "id": "8fee6995-0ca2-4033-9be9-3068245e198e",
+      "name": "Extract from File"
+    }
+  ],
+  "connections": {
+    "Remove invalid entries": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load legal person": {
+      "main": [
+        [
+          {
+            "node": "LoadedWorker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create commands": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send commands to API": {
+      "main": [
+        [
+          {
+            "node": "Convert response to string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send commands to API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set empty response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert response to string": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set empty response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoadedWorker": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertedWorker": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge New with Existing": {
+      "main": [
+        [
+          {
+            "node": "Create commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UpsertedWorker",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load legal person",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "9adaa34d-8e88-4d61-8ad8-e577ff5ab76d",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "A02sgPL7Gf6wU1Pp",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

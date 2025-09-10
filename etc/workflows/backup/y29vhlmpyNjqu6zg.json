@@ -1,0 +1,389 @@
+{
+  "createdAt": "2024-08-02T15:50:37.495Z",
+  "updatedAt": "2024-08-06T11:44:57.625Z",
+  "id": "y29vhlmpyNjqu6zg",
+  "name": "DE Workflow",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "path": "={{ $json.path }}"
+      },
+      "id": "62fe0a70-4f3f-4658-a57e-8d9e57dedcb1",
+      "name": "FTP Download file",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -360,
+        1160
+      ],
+      "credentials": {
+        "ftp": {
+          "id": "ux1gGjY1klTXRnxS",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "path": "/ftp/n8n/payslip/de"
+      },
+      "id": "e8dd105e-1c9f-408b-bfec-84248ad02e08",
+      "name": "FTP List files on ftp",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        1160
+      ],
+      "credentials": {
+        "ftp": {
+          "id": "ux1gGjY1klTXRnxS",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "limit"
+      },
+      "id": "6bdcf4c9-5f37-45b6-9e6c-bcadafcfd284",
+      "name": "Pick file",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rename",
+        "oldPath": "={{ $json.path }}",
+        "newPath": "=/ftp/n8n/payslip/done/{{ $json.name }}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "id": "f1ab3fb0-3f20-421b-b467-db70d66f9a80",
+      "name": "FTP Move file",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        80,
+        1460
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.name }}",
+              "operation": "contains",
+              "value2": "pdf"
+            }
+          ]
+        }
+      },
+      "id": "32ab7541-7054-492c-ab07-72174aa620f5",
+      "name": "Filter only PDFs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        -780,
+        1160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "f394b9c2-4d45-43ec-b1ac-36edb2efde3a",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1240,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const pdf = require('pdf-parse');\n\nconst DESCR_POSITION = 118;\nconst PERSON_SEARCH = \"*P.-Nr.:\";\nconst CLIENT_SEARCH = \"Ungarische Krankenkasse\";\n\nconst options = {\n  // internal page parser callback\n  // you can set this option, if you need another format except raw text\n  pagerender: render_page,\n  // max page number to parse\n  max: 5000\n}\n\nfunction getTilComma(input) {\n    // Find the index of the first comma in the string\n    const commaIndex = input.indexOf(',');\n\n    // If there's no comma, return the entire string\n    if (commaIndex === -1) {\n        return input;\n    }\n\n    // Return the substring from the start to the first comma\n    return input.substring(0, commaIndex);\n}\n\nconst findValueEquals = (str,items) => {\n  let pos = 0;\n  if (items) {  \n    let size = items.length;\n    for (let i = 0; i < items.length; i++) {\n      let value = items[i].str;          \n      if (value) {\n        if (value.toUpperCase().localeCompare(str.toUpperCase(), 'en', { sensitivity: 'base' }) == 0) {\n          pos = i;\n          break;\n        }\n      }\n    }    \n  }\n  return pos;\n}\n\nconst findValueIncludes = (str,items) => {\n  let pos = 0;\n  if (items) {  \n    let size = items.length;\n    for (let i = 0; i < items.length; i++) {\n      let value = items[i].str;          \n      if (value) {\n        if (value.includes(str)) {\n          pos = i;\n          break;\n        }\n      }\n    }    \n  }\n  return pos;\n}\n\nfunction safeGet(items, pos) {\n  if (pos && pos < items.length) {\n    return items[pos].str\n  } else {\n    return \"\";\n  }\n}\n\nfunction render_page(pageData) {\n    const page = pageData.pageNumber;\n\n    let render_options = {\n      normalizeWhitespace: false,\n      disableCombineTextItems: false\n    }\n\n  \n    return pageData.getTextContent(render_options)\n      .then(function (textContent) {\n        \n        const items = textContent.items;\n\n        let pos = findValueIncludes(PERSON_SEARCH,items);  \n        let clientPos = findValueEquals(CLIENT_SEARCH,items);\n\n        return JSON.stringify({\n           page,\n           person: safeGet(items,pos),\n           descr: safeGet(items,DESCR_POSITION),\n           client: getTilComma(safeGet(items,clientPos+2))\n          }) + \",\";\n      })\n}\n\n// get the binary data from the earlier step\nlet binaryDataBufferItem = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst doc = await pdf(binaryDataBufferItem, options);\nlet result = \"\"\nif (doc && doc.text) {\n  result = \"[\" + doc.text + \"{}\" +\"]\"\n} else {\n  result = [];\n}\n\nconst positions = JSON.parse(result).filter(value => Object.keys(value).length !== 0);\n\nfor (const item of $input.all()) {\n  item.json.positions = positions\n}\n\nreturn $input.all();\n\n"
+      },
+      "id": "3a4a7292-12f3-4ee2-8cbe-765adfcfe6c7",
+      "name": "Parse PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item;\nconst positions = item.json.positions;\n\nconst cleanPerson = (personData) => {\n  \n    const regex = /P\\.-Nr\\.\\s*:\\s*(\\d+)(?:,\\s*Abt\\.-Nr\\.\\s*:\\s*(\\d+))?/;\n    \n    // Create an object to store the parsed values\n    const parsedData = {\n        person: null,\n        revision: null,\n        page: personData.page,\n        descr: personData.descr,\n        client: personData.client,\n    };\n\n    // Execute the regular expression on the input string\n    const match = regex.exec(personData.person);\n\n    // If there's a match, extract the P.-Nr. and Abt.-Nr.\n    if (match) {\n        parsedData.person = match[1];\n        if (match[2]) {\n            parsedData.revision = match[2];\n        }\n    }\n\n    return parsedData;  \n}\n\nconst reduced = positions\n  .filter(item => item.person !== \"\")\n  .map(cleanPerson)\n  .reduce( (acc,item) => {\n    const person = item.person;\n    const curr = acc[person] || {\n      person: item.person,\n      revision: item.revision,\n      descr: item.descr,\n      client: item.client,\n      pages: []\n    };\n\n    curr.pages.push(item.page);\n    acc[person] = curr;\n    return acc;\n}, {});\n\n// Loop over input items and add a new field called 'myNewField' to the JSON of each one\n// for (const item of $input.all()) {\n//   item.json.myNewField = 1;\n// }\n$input.item.json.positions = reduced;\n\nreturn $input.item;"
+      },
+      "id": "1f4b99f9-ed49-403e-81e8-900f14daa0d9",
+      "name": "Group by person Id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "path": "=/ftp/n8n/payslip/{{ $json\n.country}}/mapping.csv",
+        "binaryPropertyName": "mapping"
+      },
+      "id": "21087d16-c6f1-4981-a440-4f9cc85161a8",
+      "name": "FTP Download Mapping",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        560,
+        880
+      ],
+      "executeOnce": false,
+      "credentials": {
+        "ftp": {
+          "id": "ux1gGjY1klTXRnxS",
+          "name": "FTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "mapping",
+        "options": {}
+      },
+      "id": "e3322e01-8a8d-437d-99a5-2ffdcec36a17",
+      "name": "Extract from File",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        780,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0e8d98f8-d0ea-4bd2-8c2b-c34795985713",
+              "name": "country",
+              "value": "de",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "d29fab34-99f7-40de-9832-05b68617a778",
+      "name": "Add country field",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        1160
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const elements = $input.all();\n\nconst result = elements.reduce((acc, elm) => {\n  const json = elm.json;\n  acc[json.id] = elm.json;  \n  return acc;\n}, {})\n\nreturn {\n  employees: result\n}"
+      },
+      "id": "85c57538-b5c5-4a13-b36a-42f571a31370",
+      "name": "Normalize Mappings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "506fa34f-78d0-43b3-9b20-a848018babff",
+      "name": "Merge",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1240,
+        1140
+      ]
+    }
+  ],
+  "connections": {
+    "FTP Download file": {
+      "main": [
+        [
+          {
+            "node": "FTP Move file",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parse PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP List files on ftp": {
+      "main": [
+        [
+          {
+            "node": "Filter only PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick file": {
+      "main": [
+        [
+          {
+            "node": "FTP Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter only PDFs": {
+      "main": [
+        [
+          {
+            "node": "Pick file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "FTP List files on ftp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse PDF": {
+      "main": [
+        [
+          {
+            "node": "Group by person Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group by person Id": {
+      "main": [
+        [
+          {
+            "node": "Add country field",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP Download Mapping": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Normalize Mappings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add country field": {
+      "main": [
+        [
+          {
+            "node": "FTP Download Mapping",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Normalize Mappings": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "c775cdd5-463d-49aa-86e3-914b58178a63",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "y29vhlmpyNjqu6zg",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,592 @@
+{
+  "createdAt": "2025-05-20T04:19:08.059Z",
+  "updatedAt": "2025-05-26T03:35:29.678Z",
+  "id": "nVDti8ijKzOi7upB",
+  "name": "Import A1",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "File",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -860,
+        40
+      ],
+      "id": "e4c2a6bb-3c9e-455c-a7fb-83ee392cb965",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a1b65a-0f17-4af4-a6ba-ffd34b643618",
+              "leftValue": "={{ $json.identifier }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3ff997b1-71a4-45b0-b832-869e0adf47d2",
+              "leftValue": "={{ $json.identifier }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -580,
+        40
+      ],
+      "id": "ab65e77d-2c49-45fd-b42c-aefa795940b3",
+      "name": "Remove invalid entries"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        -260
+      ],
+      "id": "0ad6edec-48be-4ea4-82ac-d55a531dd68c",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { nanoid } = require('nanoid');\n\n/** Normalize \"YYYY.MM.DD\" or nullable → Date | undefined */\nfunction parseDate(str) {\n  if (!str || String(str).trim() === \"\") return undefined;\n  return str;\n}\n\n/** Build CREATE command */\nfunction makeCreateCommand(upserted) {\n  const newId = nanoid();\n  const issued = parseDate(upserted.issued);\n  const start  = parseDate(upserted.period_start);\n  const end    = parseDate(upserted.period_end);\n\n  const cmd = {\n    type: \"postingNotification/CREATE\",\n    value: {\n      id: newId,\n      uid: upserted.worker.uid,\n      identifier: upserted.identifier,\n      notification: {\n        type: upserted.posting_notification_type,\n        issued: issued,                           // Date\n        employment_country: upserted.employment_country,\n        posting_country: upserted.posting_country,\n        lender_name: upserted.lender.name,\n        borrower_name: upserted.borrower.name,\n        period_start: start,                      // Date\n        period_end: end ?? \"\",                    // \"\" or Date\n      }\n    }\n  };\n\n  return cmd;\n}\n\n/** Build DELETE command */\nfunction makeDeleteCommand(existing, upserted) {\n  const cmd = {\n    type: \"postingNotification/DELETE\",\n    value: {\n      id: existing.id,    \n      uid: upserted.worker.uid,\n      identifier: existing.identifier,\n    }\n  };\n\n  return cmd;\n}\n\n/** Build UPDATE command */\nfunction makeUpdateCommand(existing, upserted) {\n  const issued = parseDate(upserted.issued);\n  const start  = parseDate(upserted.period_start);\n  const end    = parseDate(upserted.period_end);\n\n  const cmd = {\n    type: \"postingNotification/UPDATE\",\n    value: {\n      id: existing.id,\n      uid: upserted.worker.uid,\n      identifier: upserted.identifier,\n      notification: {\n        type: upserted.posting_notification_type,\n        issued: issued,\n        employment_country: upserted.employment_country,\n        posting_country: upserted.posting_country,\n        lender_name: upserted.lender.name,\n        borrower_name: upserted.borrower.name,\n        period_start: start,\n        period_end: end ?? \"\",\n      }\n    }\n  };\n\n  return cmd;\n}\n\nfunction buildNotificationCommand(existingNotification, upsertedNotification) {\n  // CREATE: no existing record or it lacks identifier\n  if (\n    !existingNotification ||\n    typeof existingNotification.identifier !== \"string\"\n  ) {\n    return makeCreateCommand(upsertedNotification);\n  }\n\n  // from here on, existingNotification.identifier is a string\n  // (optional: verify it matches upsertedNotification.identifier)\n  if (\n    existingNotification.identifier !== upsertedNotification.identifier\n  ) {\n    throw new Error(\n      `Identifier mismatch: existing=${existingNotification.identifier} vs upserted=${upsertedNotification.identifier}`\n    );\n  }\n\n  // determine if all three key dates are empty → DELETE\n  const noIssued = !parseDate(upsertedNotification.issued);\n  const noStart  = !parseDate(upsertedNotification.period_start);\n  const noEnd    = !parseDate(upsertedNotification.period_end);\n  if (noIssued && noStart && noEnd) {\n    return makeDeleteCommand(existingNotification, upsertedNotification);\n  }\n\n  // otherwise → UPDATE\n  return makeUpdateCommand(existingNotification, upsertedNotification);\n}\n\nconst existingForm = $json.existingNotification\nconst upsertedForm = $json.upsertedNotification\n\ntry {\n  const allCommands = buildNotificationCommand(existingForm, upsertedForm);  \n  return {\n      commands: [allCommands]\n  };\n} catch (err) {\n  return {\n      commands: [],\n      error: err.message\n  };\n}\n\n\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -100
+      ],
+      "id": "2b321fd4-434d-4c7c-885d-2c09aff69c1e",
+      "name": "Create commands"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['BER_API_ENDPOINT'] }}/commandbus/dispatch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env['BER_API_AUTH_TOKEN']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"commands\": {{ JSON.stringify($json.commands) }}\n  }\n]\n",
+        "options": {}
+      },
+      "id": "c534a3ac-bebf-4cbc-8b4f-c809b9884208",
+      "name": "Send commands to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1640,
+        -120
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abc90ecf-8d35-4167-871c-fee991880ace",
+              "leftValue": "={{ $json.commands }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        -100
+      ],
+      "id": "d2c6bc7d-e419-4ad7-9ab6-1e13fd1e9273",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n/**\n * Maps an array of CommandStatus objects to a list of strings according to these rules:\n * 1) If success and isValid are both true => \"type: ok\"\n * 2) If isValid is false => log validationErrors, return \"type: errors\"\n * 3) If success is false => log executionError, return \"type: errors\"\n * 4) Otherwise => \"type: unknown state\"\n */\nfunction mapCommandStatuses(commands) {\n  return commands.map(command => {\n    // 1) If both success and isValid are true => \"type: ok\"\n    if (command.success && command.isValid) {\n      return `${command.type}: ok`;\n    }\n\n    // 2) If isValid is false => list validationErrors, return \"type: errors\"\n    if (!command.isValid) {\n      const errors = command.validationErrors || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 3) If success is false => list executionError, return \"type: errors\"\n    if (!command.success) {\n      const errors = command.executionError || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 4) Fallback (unexpected state)\n    return `${command.type}: unknown state`;\n  });\n}\n\nconst results = mapCommandStatuses(data);\n\nreturn {\n  'response': results ? results.join(', '): 'empty'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1860,
+        -120
+      ],
+      "id": "adb48be8-d4cb-4a7c-8b99-e495eb6e7450",
+      "name": "Convert response to string"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if ($json.error) {\n  return {\n    'response': $json.error\n  }\n} else {\n  return {\n    'response': 'no change'\n  }  \n}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        460
+      ],
+      "id": "8bcf3cdd-ffe8-4087-b235-bbdfa141b823",
+      "name": "Set empty response"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=processed_{{ $('Form').item.json['File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        -520
+      ],
+      "id": "464dbfe4-7f68-4167-b68a-ea777a5da7a6",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az Dolgozok feltoltes feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "8643fadd-aed5-48c1-91d3-2bcee4905340",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        620,
+        -520
+      ],
+      "webhookId": "2a3b914f-0674-4c96-a94f-42411e3da1a8",
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Jogi személyek importálása",
+        "formDescription": "Ez az űrlap lehetőséget biztosít kikuldetesek adatinak importálására. Kérjük, töltsd fel az xlsx kiterjesztésű fájlt, amely a kikuldetesek adatait tartalmazza, a Fájl mezőbe, majd add meg azt az email címet, amelyre a rendszer az importálás eredményét elküldi.\n\nAz importálási folyamat a következő lépéseket tartalmazza:\n\nFájl feltöltése: Az xlsx formátumú fájlban található dolgozók alapján történik az importálás.\n\nEredmény email: Az importálás befejezése után a rendszer automatikusan küld egy emailt a megadott címre, amely tartalmazza az importálási folyamat eredményét és esetleges hibajelentéseket.\n\nKérjük, győződj meg róla, hogy a feltöltött fájl helyes formátumban van, és a megadott email cím érvényes!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "*.xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A File feldolgozása megkezdödött"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        40
+      ],
+      "id": "640743ad-1aa3-4d74-a5d0-847b0ca9a878",
+      "name": "Form",
+      "webhookId": "e6e84448-282c-4454-a7bf-40b8cd039150"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        920,
+        -100
+      ],
+      "id": "34ad9729-a99a-4cc0-978e-5a81f321d447",
+      "name": "Merge New with Existing"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        60,
+        40
+      ],
+      "id": "51bcb5da-2dd6-4e02-bfff-439eda8abfb7",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1860,
+        960
+      ],
+      "id": "2fd1e0e5-a846-4159-9c41-a6bbd4dab74d",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Normalizes the input to return a single object.\n *\n * - If input is null, returns an empty object.\n * - If input is an array:\n *    - Returns the first element if the array is not empty.\n *    - Returns an empty object if the array is empty.\n * - If input is a single object, returns the object.\n *\n * @param {Object | Object[] | null} input - The input value to normalize.\n * @returns {Object} - A normalized object.\n */\nfunction normalizeInput(input) {\n  // Check if the input is null.\n  if (input === null) {\n    return {};\n  }\n  \n  // Check if the input is an array.\n  if (Array.isArray(input)) {\n    // Return the first element if available, otherwise an empty object.\n    return input.length ? input[0] : {};\n  }\n  \n  // If it's a single object, return it as is.\n  if (typeof input === 'object') {\n    return input;\n  }\n  \n  // Fallback: in unexpected cases, return an empty object.\n  return {};\n}\n\n  const reformatDate = (dateStr) => dateStr ? dateStr.replace(/-/g, '.') : dateStr;\n\n/**\n * Recursively traverses an object or array, reformatting any string values\n * that match the YYYY-MM-DD pattern into YYYY.MM.DD using reformatDate.\n * All other fields are left intact.\n *\n * @param {Object|Array} data - The source data structure.\n * @returns {Object|Array} - A new structure with dates reformatted.\n */\nfunction reformatDatesInObject(data) {\n  if (Array.isArray(data)) {\n    return data.map(item => reformatDatesInObject(item));\n  }\n  if (data !== null && typeof data === 'object') {\n    return Object.entries(data).reduce((acc, [key, value]) => {\n      if (typeof value === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(value)) {\n        acc[key] = reformatDate(value);\n      } else if (value !== null && (typeof value === 'object' || Array.isArray(value))) {\n        acc[key] = reformatDatesInObject(value);\n      } else {\n        acc[key] = value;\n      }\n      return acc;\n    }, {});\n  }\n  return data;\n}\n\nconst notification = normalizeInput($input.item.json.data?.posting_notification || {});\n\nreturn {\n  existingNotification:  reformatDatesInObject(notification)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        -260
+      ],
+      "id": "1748fd38-902b-400f-bcae-c9b681bcbfec",
+      "name": "LoadedWorkerPosting"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Strip a trailing dot from date strings like \"2024.07.30.\" to \"2024.07.30\".\n * If the input isn't a string, returns null.\n */\nfunction normalizeDateDot(src) {\n  if (typeof src !== 'string') return null;\n  return src.replace(/\\.$/, '');\n}\n\n/**\n * Transform an input record into the target structure without altering the dot-separated date format.\n * @param {Object} data - The source record\n * @returns {Object} - The transformed record\n */\nfunction transformRecord(data) {\n  if (!data || typeof data !== 'object') {\n    throw new Error('Expected an object');\n  }\n\n  return {\n    identifier: data.identifier || null,\n    issued: normalizeDateDot(data.issueDate),\n    employment_country: data.memberCountry || null,\n    archived: 'ACTIVE',\n    lender: { name: data.sendingCompanyName || null },\n    borrower: { name: data.employingCompanyName || null },\n    posting_country: data.employingCompanyCountry || null,\n    posting_notification_type: 'A1',\n    period_start: normalizeDateDot(data.startDay),\n    period_end: normalizeDateDot(data.lastDay),\n    worker: {\n      first_name: data.firstName || null,\n      last_name: data.familyName || null,\n      uid: data.NInumber || null,\n      birth_date: normalizeDateDot(data.birthDate)\n    }\n  };\n}\n\nconst data = $input.item.json;\n\n\nreturn {\n  upsertedNotification: transformRecord(data)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        320
+      ],
+      "id": "f88c1540-3029-4645-8deb-353c58ad049c",
+      "name": "UpsertedWorkerBreak"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "={{$env['BER_GRAPHQL_ENDPOINT']}}",
+        "query": "query GetNotification($limit: Int, $offset: Int, $where: posting_notification_bool_exp) {\n  posting_notification(limit: $limit, offset: $offset, where: $where) {\n    id\n    identifier\n    issued\n    employment_country\n    archived\n    lender {\n      code\n      country\n      id\n      name\n    }\n    borrower {\n      code\n      country\n      id\n      name\n    }\n    period_end\n    period_start\n    posting_country\n    posting_notification_type\n    worker {\n      first_name\n      last_name\n      uid\n      birth_date\n    }\n  }\n}",
+        "variables": "={\n   \"limit\":1,\n   \"offset\": 0,\n\t \"where\": {\n    \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"identifier\": {\n          \"_ilike\": \"{{ $json.identifier }}\"\n        }\n      }\n    ]\n  }\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        -260
+      ],
+      "id": "d94fd528-8e0d-4d0c-b7c1-2a849adb5a6c",
+      "name": "Load Worker Notification",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Y4AtWUgOfsqxWN4R",
+          "name": "Hasura Admin Secret"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove invalid entries": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create commands": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send commands to API": {
+      "main": [
+        [
+          {
+            "node": "Convert response to string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send commands to API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set empty response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert response to string": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set empty response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge New with Existing": {
+      "main": [
+        [
+          {
+            "node": "Create commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UpsertedWorkerBreak",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Worker Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoadedWorkerPosting": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertedWorkerBreak": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Load Worker Notification": {
+      "main": [
+        [
+          {
+            "node": "LoadedWorkerPosting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "839bac5d-1202-4363-bdc4-90c221926a2a",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-05-20T04:19:08.059Z",
+      "updatedAt": "2025-05-20T04:19:08.059Z",
+      "role": "workflow:owner",
+      "workflowId": "nVDti8ijKzOi7upB",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

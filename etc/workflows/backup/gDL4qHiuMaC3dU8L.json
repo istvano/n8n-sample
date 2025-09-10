@@ -1,0 +1,593 @@
+{
+  "createdAt": "2025-03-19T04:05:11.452Z",
+  "updatedAt": "2025-04-09T05:01:10.857Z",
+  "id": "gDL4qHiuMaC3dU8L",
+  "name": "Import Posting Break",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "File",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -580,
+        40
+      ],
+      "id": "3eb2ed11-88d9-440d-af21-d418e944d635",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a1b65a-0f17-4af4-a6ba-ffd34b643618",
+              "leftValue": "={{ $json.worker_uid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3ff997b1-71a4-45b0-b832-869e0adf47d2",
+              "leftValue": "={{ $json.worker_uid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -220,
+        40
+      ],
+      "id": "fcfc6f45-6546-4b9b-b1ec-b01c71098208",
+      "name": "Remove invalid entries"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        -260
+      ],
+      "id": "26afc30f-017f-4114-9de9-3243558b2531",
+      "name": "When clicking ‘Test workflow’",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { nanoid } = require('nanoid');\n\n/**\n * Generates a command object based on the existingPosting and upsertedWorkerBreak inputs.\n *\n * @param {Object} existingPosting - The JSON object representing the existing posting.\n * @param {Object} upsertedWorkerBreak - The JSON object representing the upserted worker break.\n * @returns {Object} - The command object to be used in the ETL pipeline.\n * @throws {Error} - If any required fields are missing.\n */\nfunction generateCommands(existingPosting, upsertedWorkerBreak) {\n  // Validate input existence\n  if (!existingPosting || !upsertedWorkerBreak) {\n    throw new Error(\"Both existingPosting and upsertedWorkerBreak must be provided.\");\n  }\n  \n  // Extract worker information from upsertedWorkerBreak\n  const worker = upsertedWorkerBreak.worker;\n  if (!worker) {\n    throw new Error(\"Missing worker information in upsertedWorkerBreak.\");\n  }\n  \n  // Retrieve uid from worker and ensure it exists\n  const { uid } = worker;\n  if (uid === null || uid === undefined) {\n    throw new Error(\"Worker uid is missing.\");\n  }\n  \n  // Validate and extract employment from worker\n  const employment = worker.employment;\n  if (!employment) {\n    throw new Error(\"Missing employment information in upsertedWorkerBreak.\");\n  }\n  \n  const upsertedCode = employment.code;\n  if (upsertedCode === null || upsertedCode === undefined) {\n    throw new Error(\"Employment code is missing.\");\n  }\n  \n  // Extract posting cost_center_id from employment\n  const postingData = employment.posting;\n  if (!postingData || !postingData.cost_center_id) {\n    throw new Error(\"Missing posting cost_center_id in employment posting.\");\n  }\n  const postingCostCenter = postingData.cost_center_id;\n  \n  // Validate and extract break details\n  const breakDetails = employment.break;\n  if (!breakDetails) {\n    throw new Error(\"Missing break details in employment break.\");\n  }\n  \n  const { from, to, type: breakType } = breakDetails;\n  if (!from || !to || !breakType) {\n    throw new Error(\"Incomplete break information: 'from', 'to', and 'type' are required.\");\n  }\n  \n  // Validate that existingPosting.employments is an array\n  if (!existingPosting.employments || !Array.isArray(existingPosting.employments)) {\n    throw new Error(\"existingPosting.employments is not a valid array.\");\n  }\n  \n  // Find the matching employment in existingPosting using the code.\n  // Use loose equality since the code might be a string in one object and a number in the other.\n  const matchingEmployment = existingPosting.employments.find(emp => emp.code == upsertedCode);\n  if (!matchingEmployment) {\n    throw new Error(\"No matching employment found in existingPosting with the given code.\");\n  }\n  \n  // Validate that postings is an array\n  if (!matchingEmployment.postings || !Array.isArray(matchingEmployment.postings)) {\n    throw new Error(\"No postings array found in the matching employment.\");\n  }\n  \n  // Find the first posting in the postings array that matches the cost_center_id.\n  const matchingPosting = matchingEmployment.postings.find(posting => posting.cost_center_id === postingCostCenter);\n  if (!matchingPosting) {\n    throw new Error(\"No matching posting found in employment postings with the given cost_center_id.\");\n  }\n  \n  // Extract the posting id from the found posting.\n  const postingId = matchingPosting.id;\n  if (!postingId) {\n    throw new Error(\"Matching posting does not have an id.\");\n  }\n  \n  // Construct the command object using the extracted values\n  const command = {\n    type: 'postingBreak/CREATE',\n    value: {\n      id: postingId,                   // id from the matching posting\n      uid: String(uid),                // ensure uid is a string\n      code: String(upsertedCode),      // ensure code is a string\n      postingBreak: {\n        id: nanoid(),                 // generate a new unique id using nanoid\n        cost_center_id: postingCostCenter,\n        type: breakType,\n        from: from,\n        to: to\n      }      \n    }\n  };\n  \n  return command;\n}\n\nconst existingPosting = $json.existingWorkerPosting\nconst upsertedWorkerBreak = $json.upsertedWorkerBreak\n\ntry {\n  const allCommands = generateCommands(existingPosting, upsertedWorkerBreak);  \n  return {\n      commands: [allCommands]\n  };\n} catch (err) {\n  return {\n      commands: [],\n      error: err.message\n  };\n}\n\n\n\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        80
+      ],
+      "id": "3556258b-cc8b-4ba4-87f4-96458dfdd854",
+      "name": "Create commands"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['BER_API_ENDPOINT'] }}/commandbus/dispatch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env['BER_API_AUTH_TOKEN']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"commands\": {{ JSON.stringify($json.commands) }}\n  }\n]\n",
+        "options": {}
+      },
+      "id": "1e86b43e-b8cd-4454-b895-53f8bcf61694",
+      "name": "Send commands to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1520,
+        80
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abc90ecf-8d35-4167-871c-fee991880ace",
+              "leftValue": "={{ $json.commands }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        280
+      ],
+      "id": "0e2437fc-b5c4-4ba0-b5a6-29923a1b2cc0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n/**\n * Maps an array of CommandStatus objects to a list of strings according to these rules:\n * 1) If success and isValid are both true => \"type: ok\"\n * 2) If isValid is false => log validationErrors, return \"type: errors\"\n * 3) If success is false => log executionError, return \"type: errors\"\n * 4) Otherwise => \"type: unknown state\"\n */\nfunction mapCommandStatuses(commands) {\n  return commands.map(command => {\n    // 1) If both success and isValid are true => \"type: ok\"\n    if (command.success && command.isValid) {\n      return `${command.type}: ok`;\n    }\n\n    // 2) If isValid is false => list validationErrors, return \"type: errors\"\n    if (!command.isValid) {\n      const errors = command.validationErrors || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 3) If success is false => list executionError, return \"type: errors\"\n    if (!command.success) {\n      const errors = command.executionError || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 4) Fallback (unexpected state)\n    return `${command.type}: unknown state`;\n  });\n}\n\nconst results = mapCommandStatuses(data);\n\nreturn {\n  'response': results ? results.join(', '): 'empty'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        160
+      ],
+      "id": "a5ad1645-6d32-44bc-b709-20859b299387",
+      "name": "Convert response to string"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if ($json.error) {\n  return {\n    'response': $json.error\n  }\n} else {\n  return {\n    'response': 'no change'\n  }  \n}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        480
+      ],
+      "id": "208a5d12-dfb1-4303-a80a-7f11ec7176b0",
+      "name": "Set empty response"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=processed_{{ $('Form').item.json['File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        820,
+        -400
+      ],
+      "id": "15e3deb3-ff30-4a29-959e-c22161f928b5",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az Dolgozok feltoltes feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "dfaf8e96-1e99-4339-b954-77aafb051666",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1240,
+        -400
+      ],
+      "webhookId": "4f296e6d-ce6a-4c1d-abdd-f233ad401a2b",
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Jogi személyek importálása",
+        "formDescription": "Ez az űrlap lehetőséget biztosít kikuldetesek adatinak importálására. Kérjük, töltsd fel az xlsx kiterjesztésű fájlt, amely a kikuldetesek adatait tartalmazza, a Fájl mezőbe, majd add meg azt az email címet, amelyre a rendszer az importálás eredményét elküldi.\n\nAz importálási folyamat a következő lépéseket tartalmazza:\n\nFájl feltöltése: Az xlsx formátumú fájlban található dolgozók alapján történik az importálás.\n\nEredmény email: Az importálás befejezése után a rendszer automatikusan küld egy emailt a megadott címre, amely tartalmazza az importálási folyamat eredményét és esetleges hibajelentéseket.\n\nKérjük, győződj meg róla, hogy a feltöltött fájl helyes formátumban van, és a megadott email cím érvényes!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "*.xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A File feldolgozása megkezdödött"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -920,
+        40
+      ],
+      "id": "d7722275-6591-4227-a6ec-0e28c9c35119",
+      "name": "Form",
+      "webhookId": "e8cf2e33-37d0-49a8-976c-73a61ff1d776"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        820,
+        280
+      ],
+      "id": "1f840712-6d89-4dbd-a552-4274218196af",
+      "name": "Merge New with Existing"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        60,
+        40
+      ],
+      "id": "c5645ce6-b46a-4d69-9bc4-a0ad438f68cd",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        980
+      ],
+      "id": "0e7c904f-06f7-49ca-8a98-6a4c2b299468",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "={{$env['BER_GRAPHQL_ENDPOINT']}}",
+        "query": "query getWorkerPostings($limit: Int, $offset: Int, $workerWhere: worker_bool_exp, $postingWhere: posting_bool_exp) {\n  worker(limit: $limit, offset: $offset, where: $workerWhere) {\n    id,\n    uid\n    employments(limit: 10, order_by: {date_from: desc}, where: {archived: {_eq: \"ACTIVE\"}}) {\n      id\n      date_from\n      date_to      \n      code\n      lender {\n        id\n        name\n        code\n      }\n      postings (order_by: {date_from: desc}, where: $postingWhere) {\n        id\n        date_from\n        date_to\n        type\n      \tposting_country\n      \tcost_center_id\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"limit\": 1,\n  \"offset\": 0,\n  \"postingWhere\": {\n   \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"cost_center_id\": {\n          \"_eq\": \"{{ $json.cost_center_id }}\"\n        }\n      }\n     ]\n  },\n  \"workerWhere\": {\n   \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"uid\": {\n          \"_eq\": \"{{ $json.worker_uid }}\"\n        }\n      }\n    ]\n  }\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        380,
+        60
+      ],
+      "id": "9b762d4d-6476-42dc-a26a-98ff2ff20b4b",
+      "name": "Load Worker Posting",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Y4AtWUgOfsqxWN4R",
+          "name": "Hasura Admin Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Normalizes the input to return a single object.\n *\n * - If input is null, returns an empty object.\n * - If input is an array:\n *    - Returns the first element if the array is not empty.\n *    - Returns an empty object if the array is empty.\n * - If input is a single object, returns the object.\n *\n * @param {Object | Object[] | null} input - The input value to normalize.\n * @returns {Object} - A normalized object.\n */\nfunction normalizeInput(input) {\n  // Check if the input is null.\n  if (input === null) {\n    return {};\n  }\n  \n  // Check if the input is an array.\n  if (Array.isArray(input)) {\n    // Return the first element if available, otherwise an empty object.\n    return input.length ? input[0] : {};\n  }\n  \n  // If it's a single object, return it as is.\n  if (typeof input === 'object') {\n    return input;\n  }\n  \n  // Fallback: in unexpected cases, return an empty object.\n  return {};\n}\n\nfunction reformatDates(data) {\n\n  const reformatDate = (dateStr) => dateStr ? dateStr.replace(/-/g, '.') : dateStr;\n\n  if (data && data.uid && data.employments) {\n      return {\n        ...data,\n        employments: data.employments.map(employment => ({\n          ...employment,\n          date_from: reformatDate(employment.date_from),\n          date_to: reformatDate(employment.date_to),\n          postings: employment.postings.map(activity => ({\n            ...activity,\n            date_from: reformatDate(activity.date_from),\n            date_to: reformatDate(activity.date_to),\n          }))\n        }))\n      };\n  } else {\n    return data;\n  }\n  \n}\n\nconst worker = normalizeInput($input.item.json.data?.worker || {});\n\nreturn {\n  existingWorkerPosting:  reformatDates(worker)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -60
+      ],
+      "id": "bc263532-85c5-4e78-82df-c450ed594a0e",
+      "name": "LoadedWorkerPosting"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const parseCostCenterId = (costCenterId) => {\n    const parts = costCenterId.split(\"-\");    \n    \n    return {\n      lender: parts.length>0 ? parts[0] : '',\n      division: parts.length>1 ? parts[1]: '',\n      borrower: parts.length>2 ? parts[2] : '',\n      country: parts.length>3 ? parts[3] : '',\n      sequence: parts.length>4 ? parts[4] : '',\n    };\n  }\n\nfunction restructureWorkerData(source) {\n  return {\n    worker: {\n      uid: source.worker_uid || '',\n      employment: {\n        code: source.employment_code || '',\n        posting: {\n          cost_center_id: source.cost_center_id || '',\n        },\n        break: {\n          from: source.start || '',\n          to: source.end || '',\n          type: source.type || '',\n        }\n      }\n    }\n  };\n}\n\nconst data = $input.item.json;\n\n\nreturn {\n  upsertedWorkerBreak: restructureWorkerData(data)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        520
+      ],
+      "id": "75d3e482-94be-47ee-bfc7-96b674077851",
+      "name": "UpsertedWorkerBreak"
+    }
+  ],
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove invalid entries": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create commands": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send commands to API": {
+      "main": [
+        [
+          {
+            "node": "Convert response to string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send commands to API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set empty response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert response to string": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set empty response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge New with Existing": {
+      "main": [
+        [
+          {
+            "node": "Create commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UpsertedWorkerBreak",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Worker Posting",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Worker Posting": {
+      "main": [
+        [
+          {
+            "node": "LoadedWorkerPosting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoadedWorkerPosting": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertedWorkerBreak": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "5638cf19-e792-4abf-9ad1-669319cd0a21",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "gDL4qHiuMaC3dU8L",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

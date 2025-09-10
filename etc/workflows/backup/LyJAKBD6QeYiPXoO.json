@@ -1,0 +1,301 @@
+{
+  "createdAt": "2025-02-03T15:02:29.668Z",
+  "updatedAt": "2025-02-03T15:24:59.503Z",
+  "id": "LyJAKBD6QeYiPXoO",
+  "name": "Process Octopus tables",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "list",
+        "path": "/dbfields/to_process"
+      },
+      "id": "d36b5a56-6473-439a-acc7-9c7372d39561",
+      "name": "FTP List files on ftp",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -2480,
+        120
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.name }}",
+              "operation": "endsWith",
+              "value2": "json"
+            }
+          ]
+        }
+      },
+      "id": "d1260770-db54-4f83-902b-d1d71a7ffc21",
+      "name": "Filter only PDFs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        -2180,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "rename",
+        "oldPath": "={{ $json.path }}",
+        "newPath": "=/dbfields/json/kept/{{ $json.name }}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "id": "a00d0b69-a928-4bdc-8ec2-c161f21d8d0b",
+      "name": "FTP Move file to Processing",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        520
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2880,
+        120
+      ],
+      "id": "c2342afb-c852-431b-a82a-1b18ceaf56c6",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    \"output\": [\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"CEGCSOPID\",\n        \"Type\": \"int\",\n        \"Description\": \"Company group ID (int)\",\n        \"Reason\": \"CEGCSOPID stands for 'cég csoport ID,' meaning company group identifier.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"CEGCSOPNEV\",\n        \"Type\": \"varchar(50)\",\n        \"Description\": \"Company group name (varchar)\",\n        \"Reason\": \"CEGCSOPNEV likely combines 'cég csoport' (company group) and 'név' (name), indicating the group's name.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"TID\",\n        \"Type\": \"int\",\n        \"Description\": \"Transaction ID (int)\",\n        \"Reason\": \"TID commonly refers to 'transaction ID,' denoting the unique identifier for a transaction.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"CRUS\",\n        \"Type\": \"int\",\n        \"Description\": \"Created-by user (int)\",\n        \"Reason\": \"CRUS likely stands for 'created user,' indicating who created the record.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"CRDTI\",\n        \"Type\": \"datetime\",\n        \"Description\": \"Creation datetime\",\n        \"Reason\": \"CRDTI likely stands for 'creation date/time,' storing when the record was created.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"UPUS\",\n        \"Type\": \"int\",\n        \"Description\": \"Updated-by user (int)\",\n        \"Reason\": \"UPUS parallels CRUS, indicating the user who updated the record.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"UPDTI\",\n        \"Type\": \"datetime\",\n        \"Description\": \"Update datetime\",\n        \"Reason\": \"UPDTI parallels CRDTI, storing the date/time when the record was updated.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"PARTNERCIMID\",\n        \"Type\": \"int\",\n        \"Description\": \"Partner address ID (int)\",\n        \"Reason\": \"PARTNERCIMID likely refers to the unique identifier for a partner's address.\"\n      },\n      {\n        \"Table\": \"CEGCSOP\",\n        \"Field\": \"CEGCSOPORTVEZETO\",\n        \"Type\": \"int\",\n        \"Description\": \"Company group leader ID (int)\",\n        \"Reason\": \"CEGCSOPORTVEZETO likely translates to 'cég csoport vezető,' indicating the identifier for the leader of the company group.\"\n      }\n    ]\n  },\n  {\n    \"output\": [\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"PARTKATKOD\",\n        \"type\": \"varchar(10)\",\n        \"description\": \"Partner category code (varchar)\",\n        \"reason\": \"PARTKATKOD stands for 'partner kategória kód,' signifying a partner category code.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"PARTKATNEV\",\n        \"type\": \"varchar(40)\",\n        \"description\": \"Partner category name (varchar)\",\n        \"reason\": \"PARTKATNEV likely refers to 'partner kategória név,' making it the name of the partner category.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"PKATADAT1\",\n        \"type\": \"varchar(120)\",\n        \"description\": \"Partner category data 1 (varchar)\",\n        \"reason\": \"PKATADAT1 suggests it stores additional data about the partner category.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"PKATADAT2\",\n        \"type\": \"varchar(120)\",\n        \"description\": \"Partner category data 2 (varchar)\",\n        \"reason\": \"PKATADAT2 likely serves as another field for extra data regarding the partner category.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"PKATADAT3\",\n        \"type\": \"varchar(120)\",\n        \"description\": \"Partner category data 3 (varchar)\",\n        \"reason\": \"PKATADAT3 is presumably an additional field for even more partner category data.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"TID\",\n        \"type\": \"int\",\n        \"description\": \"Transaction ID (int)\",\n        \"reason\": \"TID typically refers to 'transaction ID,' used for identifying transactions.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"CRDTI\",\n        \"type\": \"datetime\",\n        \"description\": \"Creation datetime\",\n        \"reason\": \"CRDTI stands for 'creation date/time,' storing when the partner category record was created.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"CRUS\",\n        \"type\": \"int\",\n        \"description\": \"Created-by user (int)\",\n        \"reason\": \"CRUS likely stands for 'created user,' indicating who created the partner category record.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"UPDTI\",\n        \"type\": \"datetime\",\n        \"description\": \"Update datetime\",\n        \"reason\": \"UPDTI parallels CRDTI, storing the date/time when the partner category record was last updated.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"UPUS\",\n        \"type\": \"int\",\n        \"description\": \"Updated-by user (int)\",\n        \"reason\": \"UPUS indicates the user who updated the partner category record.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"LEIRAS\",\n        \"type\": \"varchar\",\n        \"description\": \"Description (varchar)\",\n        \"reason\": \"LEIRAS likely represents a descriptive text about the partner category.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"WEBESLEIRAS\",\n        \"type\": \"varchar\",\n        \"description\": \"Web description (varchar)\",\n        \"reason\": \"WEBESLEIRAS likely refers to a description intended for web representation of the partner category.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"ELOFOGLKEZ\",\n        \"type\": \"int\",\n        \"description\": \"Pre-condition handling ID (int)\",\n        \"reason\": \"ELOFOGLKEZ possibly stands for 'előfoglalás kezelés,' which could indicate handling pre-conditions.\"\n      },\n      {\n        \"table\": \"PARTKAT\",\n        \"field\": \"ELOFOGLTIPID\",\n        \"type\": \"int\",\n        \"description\": \"Pre-condition type ID (int)\",\n        \"reason\": \"ELOFOGLTIPID likely signifies an ID for the type of pre-condition related to the partner category.\"\n      }\n    ]\n  },\n  {\n    \"output\": [\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"REGIOKOD\",\n        \"Type\": \"int\",\n        \"Description\": \"Region code (int)\",\n        \"Reason\": \"REGIOKOD likely refers to a code that uniquely identifies a region.\"\n      },\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"REGIONEV\",\n        \"Type\": \"varchar(30)\",\n        \"Description\": \"Region name (varchar)\",\n        \"Reason\": \"REGIONEV suggests it represents the name of the region, with 'nev' indicating 'name' in Hungarian.\"\n      },\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"TID\",\n        \"Type\": \"int\",\n        \"Description\": \"Transaction ID (int)\",\n        \"Reason\": \"TID could stand for 'Transaction ID,' often used as a unique identifier for transactions.\"\n      },\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"CRUS\",\n        \"Type\": \"int\",\n        \"Description\": \"Created-by user (int)\",\n        \"Reason\": \"CRUS likely stands for 'created user,' indicating who created the record.\"\n      },\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"CRDTI\",\n        \"Type\": \"datetime\",\n        \"Description\": \"Creation datetime\",\n        \"Reason\": \"CRDTI likely stands for 'creation date/time,' storing when the record was created.\"\n      },\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"UPUS\",\n        \"Type\": \"int\",\n        \"Description\": \"Updated-by user (int)\",\n        \"Reason\": \"UPUS parallels CRUS, indicating the user who updated the record.\"\n      },\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"UPDTI\",\n        \"Type\": \"datetime\",\n        \"Description\": \"Update datetime\",\n        \"Reason\": \"UPDTI parallels CRDTI, storing the date/time when the record was updated.\"\n      },\n      {\n        \"Table\": \"REGIO\",\n        \"Field\": \"PARTMANAGERKOD\",\n        \"Type\": \"int\",\n        \"Description\": \"Partner manager code (int)\",\n        \"Reason\": \"PARTMANAGERKOD stands for 'partner manager kód,' used for identifying a partner manager.\"\n      }\n    ]\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1260,
+        -540
+      ],
+      "id": "ac8c48e6-146a-4585-9570-575b51d642e4",
+      "name": "return sample data",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -960,
+        220
+      ],
+      "id": "46134d56-7a2c-46d4-9a2b-e583df9e3851",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "maxItems": 2000
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -1960,
+        120
+      ],
+      "id": "a211580d-8724-44cd-844f-08038480f962",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const important_tables = [\n  \"WEBSERNAPLO\",\n  \"LOG_BERENDIT\",\n  \"DISZPOZMENT\",\n  \"LOG_BEREND\",\n  \"WEBSESSION\",\n  \"RMOZG\",\n  \"LOG_SZALLITAS\",\n  \"RBEKIIT\",\n  \"BIZTRAK\",\n  \"WEBSESIT\",\n  \"KISZMLIT\",\n  \"BERENDIT\",\n  \"FEDEZETKARTON\",\n  \"FOKITEM\",\n  \"FOLYLEIR\",\n  \"LOG\",\n  \"KIKESZITIT\",\n  \"DISZPOZ\",\n  \"AFAGYUJT\",\n  \"PUTETEL\",\n  \"QUEUE\",\n  \"CSOMAGOK\",\n  \"RAKBEKI\",\n  \"KISZMLA\",\n  \"AFABEVALL\",\n  \"BEREND\",\n  \"SZALLITAS\",\n  \"JARATIT\",\n  \"WEBHIRLCIMZETT\",\n  \"tmp_afagyujt_20161220\",\n  \"LOG_NAVFELADANDO\",\n  \"CBEKERAR\",\n  \"PARTLEI\",\n  \"tmp_20161212_putetel\",\n  \"KIKESZIT\",\n  \"NAVFELELEM\",\n  \"NAVFELADANDO\",\n  \"vstmp_fokitem_20240411\",\n  \"BESZMLIT\",\n  \"RAKARUK\",\n  \"RAKERTEK\",\n  \"NAVFELKOTEG\",\n  \"BESZALLT\",\n  \"ELOLEGIT\",\n  \"SERVCALLLOG\",\n  \"tmp_fokitem_teljes2019mentes_20191010\",\n  \"tmp_20161212_rakbeki\",\n  \"EDOCIGENY\",\n  \"LOG_LELTART\",\n  \"KIRENDIT\",\n  \"VISSZAIGIT\",\n  \"NAVFELADLOG\",\n  \"LOG_KESZMIT\",\n  \"CIKKAJANLO\",\n  \"tmp_20161212_fokitem\",\n  \"BIZTKEDV\",\n  \"ELADAR\",\n  \"MELLEKLETEKNYILVTART\",\n  \"MELLEKLETEK\",\n  \"ARFOLYAM\",\n  \"RAKTERH\",\n  \"LOG_PARTNER\",\n  \"DISZPBIZ\",\n  \"STOREDFILESLOG\",\n  \"BESZMLA\",\n  \"tmp_fokitem_20161219\",\n  \"WEBNYILATKOZATELF\",\n  \"FIFOEGY\",\n  \"BANKTRLOG\",\n  \"CRMERTEKEK\",\n  \"LELTART\",\n  \"tmpleltart20250104\",\n  \"BIZKEDV\",\n  \"EUADOELL\",\n  \"ELOLEGBEKERO\",\n  \"ISFELGYUJTET\",\n  \"VKODOLVASAS\",\n  \"KESZMIT\",\n  \"KEPTARSITAS\",\n  \"BIZNYOMTSOR\",\n  \"RAKMGIT\",\n  \"FUTIGENY\",\n  \"RECUPDATE\",\n  \"TULELEM\",\n  \"KEP\",\n  \"BESZALL\",\n  \"ATLAGAR\",\n  \"IGENYVALT\",\n  \"CIKKERD\",\n  \"LOG_KEDVEZM\",\n  \"FTSCRINPUT\",\n  \"HELYCIKK\",\n  \"WEBLISTIT\",\n  \"EMAILFELIR\",\n  \"CIKKME\",\n  \"PARTNER\",\n  \"PARTNER_EGYEB\",\n  \"FTS_ALAP\",\n  \"REGTOKEN\",\n  \"KEDVEZM\",\n  \"KESZLET\",\n  \"KESZLETELOFOGL\",\n  \"CIKKFELGYNYELV\",\n  \"CIKK\",\n  \"CIKK_EGYEB\",\n  \"CIKKBESZ\",\n  \"EMAILEK\",\n  \"TRANSFERLOG\",\n  \"VANKOZOM\",\n  \"tmp_partner_adoszamok_tr181500\",\n  \"RIGHTSIT\",\n  \"PUTELIT\",\n  \"RUMFORTET\",\n  \"KISZEDUTT\",\n  \"RUMELLIT\",\n  \"PARCIM\",\n  \"BISNODEADOSZAM\",\n  \"tmp_putetel_20161219\",\n  \"WEBREG\",\n  \"LOG_PARAMVAL\",\n  \"FIZESZIT\",\n  \"RIGHTS\",\n  \"WEBREGHIRLEVEL\",\n  \"LOG_AFAIDOSZ\",\n  \"MCIKKFERT\",\n  \"IRMAESEM\",\n  \"RAKMOZG\",\n  \"KEDVEZM_CIKK\",\n  \"ISJELENTET\",\n  \"IGENYEK\",\n  \"PARUGYIN\",\n  \"DEPO\",\n  \"vstmp_szallitas_20220914_tr206442\",\n  \"RUESEM\",\n  \"VISSZAIG\",\n  \"ELLIT\",\n  \"KIREND\",\n  \"ELLITS\",\n  \"TEMOZGAS\",\n  \"RAKMGITD\",\n  \"FOKKIVON\",\n  \"PARTCIKK\",\n  \"COLUMNS\",\n  \"tmp_reg\",\n  \"CIKKAZON\",\n  \"KISZALLT\",\n  \"TEERTVALT\",\n  \"FIZESZ_FIZETO\",\n  \"RAKKESZL\",\n  \"WEBLISTA\",\n  \"NYELV_CIKK\",\n  \"CIKKFELGYARUHAZ\",\n  \"KIAJANIT\",\n  \"MFOGERTFELGY1\",\n  \"MFOGERTFELGY2\",\n  \"NAPTAR\",\n  \"RAKMRESZ\",\n  \"AFAZARASNEMFIZ\",\n  \"KESZLIT\",\n  \"VIRTHELYFIZHELY\",\n  \"SORSZAM\",\n  \"CIKKHELYE\",\n  \"LOG_REPFIELD\",\n  \"TULTIPUS\",\n  \"QUEUE_ERROR\",\n  \"HELYKESZLET\",\n  \"LEGYPAR\",\n  \"PARTERV\",\n  \"IRSZAMOK\",\n  \"JOBFUTHISTORY\",\n  \"TEESZKOZ\",\n  \"REPFIELD\",\n  \"JARAT\",\n  \"VAROSOK\",\n  \"CIKKFELGY\",\n  \"IRMA\",\n  \"IGENYFELIR\",\n  \"THELYMOZGATASOK\",\n  \"FOKONTIR\",\n  \"RAKHELY\",\n  \"RUM\",\n  \"FOKTOR\",\n  \"KISZEDUT\",\n  \"RUMELL\",\n  \"NEMHIVTET\",\n  \"FORRAS_RUM\",\n  \"BESZLIT\",\n  \"FOLYEGY\",\n  \"tr160237_141_navfeladando\",\n  \"tmp_parcim_tr130551\",\n  \"AFAZTET\",\n  \"RAKTFELADAS\",\n  \"PARTART\",\n  \"THTOLTFOGYAS\",\n  \"KISZALL\",\n  \"WEBHIRLELEMEK\",\n  \"HASZONFELADAS\",\n  \"WEBKATCIKKCSOP\",\n  \"ELLBIZ\",\n  \"tmp_webkatcikkcsop\",\n  \"ELLENORZES\",\n  \"VIRTDBJEGY\",\n  \"LOG_KESZMAN\",\n  \"KESZFOGL\",\n  \"DISZPOZEGY\",\n  \"LOG_SZALLTIP\",\n  \"tmp_fokitem_mentes_20190416\",\n  \"TMP_BERENDIT_HIANYZIK\",\n  \"tmp_kiszmlit_tetelek_berend_nelkul_20161123\",\n  \"VEVOUTVASARLAS\",\n  \"tmp_20250106_rakkeszl_8\",\n  \"webkatcikkcsop_mentes\",\n  \"ment_webkatcikkcsop\",\n  \"tmpbejaras20250110\",\n  \"tmp_rakhely_ea\",\n  \"tmptemp\",\n  \"RMOZGS\",\n  \"PARAMLEI\",\n  \"BIZIDOSZ\",\n  \"RENDTET\",\n  \"ERTEKKESZLETFELGY\",\n  \"PARAMET\",\n  \"LOG_LELTAR\",\n  \"PARBANK\",\n  \"CEGCSOPORTKINTLEVOSEG\",\n  \"PARAMVAL\",\n  \"WEBTERMARERT\",\n  \"KIAJANL\",\n  \"tmp_beszmla_20161219\",\n  \"TARHELYTOLTES\",\n  \"KESZBEER\",\n  \"LEGYVAR\",\n  \"WEBROLTOROLT\",\n  \"CEGCSOP\",\n  \"CIKKCSOP\",\n  \"tmp_webkateg\",\n  \"WEBKATEG\",\n  \"SSZAMMEGJ\",\n  \"LOG_USERS\",\n  \"WEBKATHIER\",\n  \"tmp_webkathier\",\n  \"USERGRPS\",\n  \"MEZOTIP\",\n  \"LEGYUJT\",\n  \"tmp_foktor_20161216\",\n  \"tmp_20161212_autkontir\",\n  \"LOG_LELTFO\",\n  \"KEDVMENU\",\n  \"tmpa\",\n  \"LETHIRCIKKKAPCS\",\n  \"KIMUTAT\",\n  \"BIZTELL\",\n  \"BESZAMSOROK\",\n  \"LOG_BIZTIPUS\",\n  \"LOG_RAKDINAM\",\n  \"tmp_kiszmla_20161219\",\n  \"tmp_ELOLEGEGY_tr190262\",\n  \"NYELV_WEBKATEG\",\n  \"LETOLT\",\n  \"LEGYTET\",\n  \"KESZLITS\",\n  \"WEBHIRLEVEL\",\n  \"REPBANDS\",\n  \"tmpbejaras_gen_20241220\",\n  \"tmpleltar20250104\",\n  \"LELTAR\",\n  \"tmp_fokontir_20161216\",\n  \"KESZMAN\",\n  \"vstmp_szallitas_20220916_tr206442\",\n  \"CIKKFAJT\",\n  \"ELOLEGEGY\",\n  \"LOG_WEBARUHAZAK\",\n  \"LOG_USERGRPS\",\n  \"USERPASSWORDS\",\n  \"MCCSOPFOG\",\n  \"FIZFELIT\",\n  \"KSHSZAM\",\n  \"TMP_RMOZG_HIANYZIK\",\n  \"LOG_KEDVJOGC\",\n  \"TEBIZBOL\",\n  \"LOG_BIZIDOSZ\",\n  \"FILTER\",\n  \"KISZMLAFEJHELY\",\n  \"BIZEREDM\",\n  \"PICKLIST\",\n  \"LOG_RAKTARAK\",\n  \"KEDVJOGC\",\n  \"GYARTO\",\n  \"LOG_AUTRAKTBIZ\",\n  \"BEOSZTAS\",\n  \"LOG_BIZNYOMT\",\n  \"LOG_REPBANDS\",\n  \"WEBBOX\",\n  \"KEPESSEGEK\",\n  \"tmp_beszmla_adoszamok_tr181500\",\n  \"WEBMENUPONTTIP\",\n  \"BESZELTERT\",\n  \"tmp_rakmozg\",\n  \"IKTOMB\",\n  \"BIZALTIP\",\n  \"AFAZARAS\",\n  \"WEBSER\",\n  \"VEVOCIKK\",\n  \"FILTERITEM\",\n  \"ISFELGYUJT\",\n  \"ISJELENT\",\n  \"IGALLAP\",\n  \"WEBSZINONIMAK\",\n  \"F9815_38_1\",\n  \"AFAIDOSZ\",\n  \"BIZTKONT\",\n  \"LOG_FIZMOD\",\n  \"LOG_TABLEPRN\",\n  \"BIZTIPUS\",\n  \"ELOZSZAMLAK\",\n  \"USERS\",\n  \"TEMOZFOK\",\n  \"MFOGALOM\",\n  \"LOG_LEVELTIP\",\n  \"tmpleltfo20250104\",\n  \"LELTFO\",\n  \"QUERY_PARAMS\",\n  \"LOG_IRMAESTIP\",\n  \"FILTERGROUP\",\n  \"BESZLIST\",\n  \"LOG_REPFILE\",\n  \"WEBMENU\",\n  \"WEBSERKORLAT\",\n  \"BIZNYOMT\",\n  \"LANGTEXTS\",\n  \"WEBSABLONOK\",\n  \"REPFILE\",\n  \"HIR\",\n  \"BRVISSZAIGIT\",\n  \"GEPEK\",\n  \"LOG_TELEPH\",\n  \"LOG_OHIRFOLYAMTIPUS\",\n  \"NYELV_LETOLT\",\n  \"SZAMLAXML\",\n  \"MFOGERTEKKESZLET\",\n  \"REPORTS\",\n  \"LOG_EGYEDIPAR\",\n  \"REPITEM\",\n  \"MEGYE\",\n  \"tmp_nullasleltar_0918\",\n  \"BIZALLAP\",\n  \"LOG_SZALLMOD\",\n  \"QUERY_ITEMS\",\n  \"WEBDOBFORTET\"\n];\n\nconst removeFileExtensionAlt = fileName =>\n  fileName.split('.').slice(0, -1).join('.') || fileName;\n\n/**\n * Checks if a string exists in an array case-insensitively.\n *\n * @param {string[]} arr - The array of strings to search.\n * @param {string} searchStr - The string to find.\n * @returns {boolean} - True if the string is found; otherwise, false.\n */\nfunction containsStringCaseInsensitive(arr, searchStr) {\n  // Convert the search string to lower case for normalization.\n  const searchLower = searchStr.toLowerCase();\n\n  // Use Array.some to check if any array element matches the search string case-insensitively.\n  return arr.some(item => item.toLowerCase() === searchLower);\n}\n\n// Add a new field called 'myNewField' to the JSON of the item\n$input.item.json.myNewField = 1;\nconst current_name = removeFileExtensionAlt($input.item.json.name);\nconst should_be_kept = containsStringCaseInsensitive(important_tables, current_name)\n\n$input.item.json.keep = should_be_kept;\n\nreturn $input.item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        -120
+      ],
+      "id": "7220536f-16ec-46ef-bda4-4aa95241d97b",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d703a9c5-2f8f-4f35-a10e-c52bc6edf036",
+              "leftValue": "={{ $json.keep }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -1040,
+        -60
+      ],
+      "id": "ae5b1c58-5498-49bb-bd5a-559dfde068f6",
+      "name": "Filter"
+    }
+  ],
+  "connections": {
+    "FTP List files on ftp": {
+      "main": [
+        [
+          {
+            "node": "Filter only PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter only PDFs": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP Move file to Processing": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "FTP List files on ftp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "return sample data": {
+      "main": [
+        []
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "FTP Move file to Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "372f26fd-f68e-4fd5-86ff-b50ebc6e3346",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "LyJAKBD6QeYiPXoO",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

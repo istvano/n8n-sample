@@ -1,0 +1,568 @@
+{
+  "createdAt": "2025-01-31T04:08:39.344Z",
+  "updatedAt": "2025-01-31T07:06:19.421Z",
+  "id": "ctgamsgCdA4ah8jv",
+  "name": "DBFields FTP",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "path": "=/dbfields/processing/{{ $json.name }}",
+        "binaryPropertyName": "File"
+      },
+      "id": "aa7b0876-50c7-4a5b-8509-96c404e23ced",
+      "name": "FTP Download file",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -600,
+        340
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "list",
+        "path": "/dbfields/to_process"
+      },
+      "id": "38d7f0aa-9b79-4f42-b0a0-3fc4589f5f2d",
+      "name": "FTP List files on ftp",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -2220,
+        740
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "limit",
+        "maxItems": 5
+      },
+      "id": "096341c7-2959-4d09-b110-9f0aaab5367a",
+      "name": "Pick file",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 2.1,
+      "position": [
+        -1700,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.name }}",
+              "operation": "endsWith",
+              "value2": "csv"
+            }
+          ]
+        }
+      },
+      "id": "70e2c9f6-f5d5-44c6-8d4a-415154f9203a",
+      "name": "Filter only PDFs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        -1920,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "fileName": "={{ $('FTP Download file').item.json.name }}.csv"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        -360
+      ],
+      "id": "058a52fc-e6a8-4b64-a065-5b903b55ad86",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const dateObj = new Date();\n  \n  // Format to YYYY-MM-DD\n  const year = dateObj.getFullYear();\n  const month = String(dateObj.getMonth() + 1).padStart(2, '0');\n  const day = String(dateObj.getDate()).padStart(2, '0');\n  \n  const folder = `${year}-${month}-${day}`;\n  \n  // Attach folderName to item’s JSON\n  item.json.folder = folder;\n  return item;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2500,
+        740
+      ],
+      "id": "0e3649c4-38f2-4f7c-afbf-bce6b6b30605",
+      "name": "Date creation"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "path": "=dbfields/csv",
+        "options": {
+          "fileName": "={{ $('Date creation').item.json.folder }}_{{ $binary.data.fileName }}"
+        }
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        900,
+        20
+      ],
+      "id": "9c84f7ff-a029-452a-8963-e99291824531",
+      "name": "Upload file via SSH",
+      "credentials": {
+        "sshPassword": {
+          "id": "eoOYUfiDJDXPvU27",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "rename",
+        "oldPath": "=dbfields/csv/{{ $('Date creation').item.json.folder }}_{{ $('Convert to File').item.binary.data.fileName}}",
+        "newPath": "=/dbfields/csv/{{ $('Date creation').item.json.folder }}/{{ $('Convert to File').item.binary.data.fileName}}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        920,
+        320
+      ],
+      "id": "a37eccf0-a647-4138-b68d-1fe9fb883a37",
+      "name": "Move file to folder",
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n    \"familyName\": \"DR. NYAKA\",\n    \"firstName\": \"GERGELY\",\n    \"birthName\": \"\",\n    \"birthDate\": \"1986.04.24\",\n    \"NInumber\": \"040895879\",\n    \"memberCountry\": \"HUN\",\n    \"startDay\": \"2017.12.01\",\n    \"lastDay\": \"2019.11.30\",\n    \"sendingCompanyName\": \"HR-RENT SZOLGÁLTATÓ KFT.\",\n    \"employingCompanyName\": \"HR-RENT KFT.\",\n    \"employingCompanyCountry\": \"DEU\"\n  }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1480,
+        -120
+      ],
+      "id": "be495d29-fa4d-406a-9a36-495fa0606806",
+      "name": "Test Data",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1360,
+        740
+      ],
+      "id": "2f95a80c-10f2-497e-aaae-ed6b38fe5ee4",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "rename",
+        "oldPath": "={{ $json.path }}",
+        "newPath": "=/dbfields/processing/{{ $json.name }}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "id": "0270fa37-1654-4af8-a184-6b9eeef68281",
+      "name": "FTP Move file to Processing",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        380
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "rename",
+        "oldPath": "=/dbfields/processing/{{ $('Merge').item.json.name }}",
+        "newPath": "=/dbfields/done/{{ $('Merge').item.json.name }}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "id": "dccf3834-801a-43ed-9531-feb1c4f36984",
+      "name": "FTP Move file to Done",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        820
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "useDataOfInput": 2
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -940,
+        740
+      ],
+      "id": "e1427b7c-c993-44de-aca1-1ba99824b445",
+      "name": "Merge"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2740,
+        740
+      ],
+      "id": "e75bb59c-6da9-4bbd-9514-4aff3ff596f9",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Process this data which is in csv file and output only the result in csv",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You have the following CSV data, which I prepared by manually identifying each field name’s meaning and explaining the reasoning:\n\n```\nField Name,Data Type,Description,Reason\nPID,int,Partner ID (int),\"PID is the partner's unique identifier, serving as the primary key in the partner table.\"\nPARTNERKOD,varchar,Partner code (varchar),\"PARTNERKOD stands for 'Partner Kod,' where 'Partner' is English and 'Kod' is Hungarian.\"\nPARTNERKOD2,varchar,Secondary partner code (varchar),PARTNERKOD2 stands for a secondary partner code.\nPARTNERNEV,varchar,Partner name (varchar),\"PARTNERNEV stands for 'Partner Nev,' where 'Nev' is Hungarian for 'name'.\"\nORSZAG,varchar,Country (varchar),ORSZAG is Hungarian for 'country'.\nIRSZ,varchar,Zip code (varchar),\"IRSZ is short for 'irányítószám,' the Hungarian term for zip code.\"\nVAROS,varchar,City (varchar),VAROS is Hungarian for 'city'.\nUTCA,varchar,Street (varchar),UTCA is Hungarian for 'street'.\nTELSZAM,varchar,Telephone number (varchar),\"TELSZAM stands for 'telefon szám,' the Hungarian phrase for telephone number.\"\nFAXSZAM,varchar,Fax number (varchar),\"FAXSZAM means 'fax szám,' Hungarian for fax number.\"\nEMAIL,varchar,Email (varchar),EMAIL is the English term for email.\nWEB,varchar,Website (varchar),WEB is the English term for website.\nREPTIPUS,varchar,Report/representation type (varchar),REPTIPUS likely refers to a report or representation type.\nPARTNERTIPUS,varchar,Partner type (varchar),\"PARTNERTIPUS means 'partner típus,' Hungarian for partner type.\"\nFIZOSZT,varchar,Payment class (varchar),\"FIZOSZT stands for 'fizetési osztály,' Hungarian for payment class.\"\nPARTNERJELLEMZO,varchar,Partner feature/descriptor (varchar),\"PARTNERJELLEMZO is 'partner jellemző,' indicating a partner feature or descriptor.\"\nPARTKATKOD,varchar,Partner category code (varchar),\"PARTKATKOD stands for 'partner kategória kód,' signifying a partner category code.\"\nPARTMANAGERKOD,int,Partner manager code (int),\"PARTMANAGERKOD stands for 'partner manager kód,' used for identifying a partner manager.\"\nVEVFIZMODID,int,Customer payment mode ID (int),\"VEVFIZMODID is short for 'vevő fizetési mód ID,' referencing the customer payment mode.\"\nSZALLFIZMODID,int,Shipping/payment mode ID (int),SZALLFIZMODID is short for 'szállítási/fizetési mód ID.'\nSZALLHATNAP,int,Shipping deadline day (int),\"SZALLHATNAP is 'szállítás határidő nap,' referencing the shipping deadline day.\"\nSZALLMODKOD,int,Shipping mode code (int),\"SZALLMODKOD is 'szállítási mód kód,' a code for shipping mode.\"\nFUVPARKOD,varchar,Shipping partner code (varchar),\"FUVPARKOD stands for 'fuv partner kód,' referencing the shipping partner code.\"\nCEGCSOPID,int,Company group ID (int),\"CEGCSOPID stands for 'cég csoport ID,' meaning company group identifier.\"\nSZALLNAP,int,Shipping day (int),\"SZALLNAP is short for 'szállítási nap,' specifying the shipping day.\"\nPTIPUSC,int,Possible partner/doc type (int),\"PTIPUSC might be short for 'partner típus C,' referencing a possible partner/document type.\"\nPARTNEROPCIOK,int,Partner options (int),\"PARTNEROPCIOK is 'partner opciók,' meaning partner options in Hungarian.\"\nCREDIT,numeric,Credit (numeric),CREDIT is an English term for credit.\nSZALLCREDIT,numeric,Shipping credit (numeric),\"SZALLCREDIT is short for 'szállítási credit,' referencing shipping credit.\"\nFIZKESESNAP,int,Late payment days (int),\"FIZKESESNAP is 'fizetés késés nap,' representing the number of late payment days.\"\nKAMATTIPUSKOD,int,Interest type code (int),\"KAMATTIPUSKOD stands for 'kamat típus kód,' a code for interest type.\"\nVAMTIPUS,varchar,Customs type (varchar),\"VAMTIPUS is 'vám típus,' indicating a customs type.\"\nDNEM,varchar,Currency code (varchar),\"DNEM is short for 'deviza neme,' meaning currency type or code.\"\nADOSZAM,varchar,Tax number (varchar),\"ADOSZAM is 'adó szám,' Hungarian for tax number.\"\nEUADOSZAM,varchar,European tax number (varchar),\"EUADOSZAM is short for 'Európai adó szám,' referencing a European tax number.\"\nMEGJ,varchar,Note/comment (varchar),\"MEGJ is short for 'megjegyzés,' meaning note or comment in Hungarian.\"\nDEFCIMID,int,Default address ID (int),\"DEFCIMID likely stands for 'default cím ID,' referencing the default address identifier.\"\nDELSTATUS,int,Delete/Delivery status (int),DELSTATUS may refer to 'delete' and ‘status';\nPARTNERADAT1,varchar,Partner data 1 (varchar),\"PARTNERADAT1 means 'partner data 1,' providing an extra data field.\"\nPARTNERADAT2,varchar,Partner data 2 (varchar),\"PARTNERADAT2 is another 'partner data' field, similar to PARTNERADAT1.\"\nPARTNERADAT3,varchar,Partner data 3 (varchar),\"PARTNERADAT3 is another 'partner data' field, similar to PARTNERADAT1.\"\nPARTNERADAT4,varchar,Partner data 4 (varchar),\"PARTNERADAT4 is another 'partner data' field, similar to PARTNERADAT1.\"\nCSOMMODID,int,Package mode ID (int),\"CSOMMODID likely stands for 'csomag mód ID,' referencing a package mode identifier.\"\nFIGYMEGJ,varchar,Attention note (varchar),FIGYMEGJ combines 'figyelmeztetés' (warning) and 'megjegyzés' (note) to indicate an attention note.\nMEGJEGYZES,varchar,Comment/remark (varchar),MEGJEGYZES is Hungarian for comment or remark.\nTID,int,site id (int),\"TID stands for 'telephely ID,' referencing the site identifier.\"\nCRUS,int,Created-by user (int),\"CRUS likely stands for 'created user,' indicating who created the record.\"\nCRDTI,datetime,Creation datetime,\"CRDTI likely stands for 'creation date/time,' storing when the record was created.\"\nUPUS,int,Updated-by user (int),\"UPUS parallels CRUS, indicating the user who updated the record.\"\nUPDTI,datetime,Update datetime,\"UPDTI parallels CRDTI, storing the date/time when the record was updated.\"\nDEFCIKKID,int,Default item/product ID (int),\"DEFCIKKID stands for 'default cikk ID,' referencing the default item or product identifier.\"\nDEFRID,int,Default R ID (int),\"DEFRID indicates the 'default raktár ID,' referencing the default warehouse identifier.\"\nXMLPARTNERKOD,varchar,XML partner code (varchar),XMLPARTNERKOD is an external partner code used in XML integrations.\nVISSZATERITES,numeric,Refund/return amount (numeric),VISSZATERITES is Hungarian for refund or return amount.\nLEJARTCREDIT,numeric,Expired credit (numeric),\"LEJARTCREDIT combines 'lejárt' (expired) and 'credit,' indicating expired credit.\"\nBANKPREFIX,varchar,Bank prefix (varchar),BANKPREFIX combines 'bank' and 'prefix' (English).\nBANKSZAMLASZAM,varchar,Bank account number (varchar),BANKSZAMLASZAM is Hungarian for 'bank account number.'\nPARTKAPCSTART,int,Partner connection start (int),\"PARTKAPCSTART merges 'partner kapcsolat start,' indicating the start of a partner connection.\"\nWEB_UPDATE,datetime,Web update time (datetime),WEB_UPDATE likely stores the last update timestamp for the web context.\nVEVOISCONTO,numeric,Customer discount (numeric),VEVOISCONTO combines 'vevői' (buyer) and 'sconto' (discount).\nSZALLITOISCONTO,numeric,Supplier discount (numeric),SZALLITOISCONTO merges 'szállítói' (supplier) and 'sconto' (discount).\nSZAVATIDOKORLAT,int,Warranty time limit (int),\"SZAVATIDOKORLAT is 'szavatossági idő korlát,' referring to a warranty time limit.\"\nAFAADOSZAM,varchar,VAT tax number (varchar),\"AFAADOSZAM is 'áfa adószám,' referencing a VAT tax number.\"\nCEGJEGYZSZAM,varchar,Company registration number (varchar),CEGJEGYZSZAM is Hungarian for 'company registration number.'\nPARITASCEL,varchar,Parity target (varchar),PARITASCEL merges 'paritás' (parity) and 'cél' (destination).\nSZALLMEGJ,varchar,Shipping comment (varchar),\"SZALLMEGJ is 'szállítás megjegyzés,' a shipping comment.\"\nIDOKAPU,int,Time gate (int),IDOKAPU merges 'idő' (time) and 'kapu' (gate) in Hungarian.\nKARTYAAZON,varchar,Card identifier (varchar),\"KARTYAAZON is Hungarian for 'kártya azonosító,' meaning card identifier.\"\nPARTKONYVTNEV,varchar,Partner accounting name (varchar),\"PARTKONYVTNEV combines 'partner,' 'könyv' (book/account), and 'név' (name).\"\nPARTNERAUTOBIZO,int,Partner auto-permission (int),\"Possibly mixes 'partner,' 'auto,' and 'bizonylat' (document). \"\nBACKORDER,int,Backorder status/option (int),\"BACKORDER is a standard term for unfilled orders, indicating backorder status.\"\nKOLTSEGHELY,varchar,Cost center (varchar),KOLTSEGHELY is Hungarian for 'cost center.'\nMINRENDERTEK,numeric,Minimum order value (numeric),\"MINRENDERTEK is 'minimális rendelési érték,' indicating a minimum order value.\"\nPROJEKT,varchar,Project (varchar),PROJEKT likely refers to a project reference.\nUTODCEGPID,int,Successor company ID (int),UTODCEGPID merges 'utód cég' (successor company) with 'PID' for the ID.\nCIKKID,int,Item/product ID (int),\"CIKKID stands for 'cikk ID,' referencing an item or product identifier.\"\nCIKKSZAM,varchar,Item number (varchar),CIKKSZAM is Hungarian for 'item number.'\nCIKKSZAM2,varchar,Item number 2 (varchar),CIKKSZAM2 denotes a secondary or alternate item number.\nGYCIKKSZAM,varchar,Manufacturer item number (varchar),GYCIKKSZAM merges 'gyártó' (manufacturer) and 'cikkszám' (item number).\nCIKKNEV,varchar,Item name (varchar),\"CIKKNEV is 'cikk név,' meaning item name.\"\nIDEGENCIKKNEV,varchar,Foreign item name (varchar),\"IDEGENCIKKNEV merges 'idegen' (foreign), 'cikk' (item), and 'név' (name).\"\nCIKKMEGJ,varchar,Item comment/note (varchar),\"CIKKMEGJ is 'cikk megjegyzés,' an item comment or note.\"\nCIKKCSOPORTKOD,varchar,Item group code (varchar),CIKKCSOPORTKOD indicates a code for the item's group ('csoport').\nGYARTO,varchar,Manufacturer (varchar),GYARTO is Hungarian for 'manufacturer.'\nCIKKFAJTA,varchar,Item type (varchar),\"CIKKFAJTA is 'cikk fajta,' meaning item type.\"\nCIKKTIPUS,int,Item type code (int),CIKKTIPUS is a code specifying the item type in more detail.\nARUTIPUS,int,Goods type (int),\"ARUTIPUS stands for 'áru típus,' referencing a type of goods.\"\nFIGYMEGJ,varchar,Attention note (varchar),FIGYMEGJ combines 'figyelmeztetés' (warning) and 'megjegyzés' (note) to indicate an attention note.\nCIKKKONYVELES,int,Item bookkeeping (int),CIKKKONYVELES indicates how the item is recorded in bookkeeping or accounting.\nSOROZATSZAMKEZ,int,Serial number start (int),SOROZATSZAMKEZ combines 'sorozatszám' (serial number) with 'kez' (start).\nSSZAMTIPUS,int,Serial number type (int),\"SSZAMTIPUS is short for 'sorszám típus,' referencing a serial number type.\"\nSZIGSORSZAM,int,Strict serial number handling,SZIGSORSZAM merges 'szigorú' (strict) and 'sorszám' (serial number).\nGARCSOMAGID,int,Warranty package ID (int),\"GARCSOMAGID is an abbreviation for 'garancia csomag ID,' referencing a warranty package.\"\nME,varchar,unit,\"ME stands for 'mennyiségi egység,' Hungarian for unit of measure.\"\nCSOMME,varchar,package unit,\"CSOMME is 'csomag mennyiségi egység,' referencing the package unit.\"\nALAPME,varchar,base unit,\"ALAPME might stand for 'alap mennyiségi egység,' referencing a base unit.\"\nALAPMENNY,numeric,Base quantity (numeric),\"ALAPMENNY is 'alap mennyiség,' referencing a base quantity.\"\nBESZME,varchar,Supplier unit,\"BESZME is short for 'beszerzési mennyiség,' referring to the supplier unit of measure.\"\nBESZMINMENNY,numeric,Supplier min quantity (numeric),\"BESZMINMENNY is 'beszerzési minimum mennyiség,' indicating the minimum supplier quantity.\"\nKSHSZAM,varchar,Hungarian Statistical Office code (varchar),\"KSHSZAM is 'KSH szám,' referencing a code from the Hungarian Central Statistical Office.\"\nSZARMORSZAG,varchar,Country of origin (varchar),\"SZARMORSZAG is 'származási ország,' meaning country of origin.\"\nBTO,varchar,Internal code (varchar),BTO could stand for 'back-to-order' or another internal code; usage is unclear.\nBESZERZIDO,int,Procurement time (int),\"BESZERZIDO is 'beszerzési idő,' referencing procurement time.\"\nMAXTARIDO,int,Max storage time (int),\"MAXTARIDO is 'maximális tárolási idő,' referencing maximum storage time.\"\nMINKESZLET,numeric,Minimum stock level (numeric),\"MINKESZLET is 'minimális készlet,' indicating minimum stock level.\"\nMAXKESZLET,numeric,Maximum stock level (numeric),\"MAXKESZLET is 'maximális készlet,' indicating maximum stock level.\"\nTOMEG,numeric,Weight (numeric),TOMEG is Hungarian for 'weight.'\nXMERET,numeric,X dimension (numeric),XMERET indicates the dimension or size along the X axis.\nYMERET,numeric,Y dimension (numeric),YMERET indicates the dimension or size along the Y axis.\nZMERET,numeric,Z dimension (numeric),ZMERET indicates the dimension or size along the Z axis.\nFUVARKULCS,numeric,Freight rate key (numeric),\"FUVARKULCS is 'fuvardíj kulcs,' indicating a freight rate key.\"\nMANAGERCODE,int,Manager code (int),MANAGERCODE is an internal code identifying the manager.\nCIKKOPCIOK,int,Item options (int),\"CIKKOPCIOK is 'cikk opciók,' referencing item options.\"\nDOKUMENTUM,varchar,Document (varchar),DOKUMENTUM is a general reference to a document.\nCIKKINFO,varchar,Item info (varchar),CIKKINFO stores general information about an item.\nPONTSZORZO,numeric,Point multiplier (numeric),\"PONTSZORZO is 'pontszorzó,' indicating a point multiplier.\"\nPONTSZAMELTOLAS,numeric,Point offset (numeric),\"PONTSZAMELTOLAS is 'pontszám eltolás,' referencing a point offset.\"\nPONTSZAMMIN,numeric,Minimum point (numeric),PONTSZAMMIN indicates the minimum point threshold.\nPONTSZAMMAX,numeric,Maximum point (numeric),PONTSZAMMAX indicates the maximum point threshold.\nKERMIENGSZAM,varchar,Commercial license number (varchar),\"KERMIENGSZAM is derived from 'kereskedelmi engedély szám,' referencing a commercial license number.\"\nCIKKJELLID,int,Item attribute ID (int),CIKKJELLID merges 'cikk' (item) and 'jellemző' (attribute) ID.\nDELSTATUS,int,Delete/Delivery status (int),DELSTATUS may refer to 'delete' and status\nCIKKADAT1,varchar,Item data 1 (varchar),CIKKADAT1 merges 'cikk' (item) and 'adat' (data) as an item data field.\nGYARTKAPIGENY,numeric,Production capacity need (numeric),\"GYARTKAPIGENY merges 'gyárt' (produce), 'kapacitás' (capacity), and 'igény' (need).\"\nJOGDIJKOD,varchar,Royalty code (varchar),\"JOGDIJKOD is 'jogdíj kód,' referencing a royalty code.\"\nARLISTAPOZ,int,Price list position (int),ARLISTAPOZ likely indicates a position or index in a price list.\nWEBMEGJEL,int,Display on web (int),\"WEBMEGJEL stands for 'web megjelenítés,' indicating whether to display on the web.\"\nSULINETES,int,Sulinet status (int),\"SULINETES is related to the Hungarian 'Sulinet' educational program, indicating status.\"\nBESZERZESTIPUS,int,Procurement type (int),\"BESZERZESTIPUS is 'beszerzés típusa,' referencing a type of procurement.\"\nBESZERZESIALLAPOT,int,Procurement status (int),\"BESZERZESIALLAPOT is 'beszerzési állapot,' referencing procurement status.\"\nBESZALLDAT,datetime,Supplier arrival date (datetime),\"BESZALLDAT stands for 'beszállítási dátum,' referencing the supplier arrival date.\"\nUZVEZKOD,int,Operations manager code (int),\"UZVEZKOD might be 'üzletvezető kód,' referencing an operations manager code.\"\nRAKLAPHTIPID,int,Pallet height type ID (int),RAKLAPHTIPID merges 'raklap' (pallet) with 'h' (height) and 'tip' (type) for the ID.\nCIKKSZURID,int,Item filter ID (int),CIKKSZURID merges 'cikk' (item) and 'szűr' (filter) for an item filter ID.\nSZAVATMENNY,int,Warranty quantity (int),SZAVATMENNY references a 'szavatossági' (warranty) quantity.\nSZAVATME,varchar,Warranty unit of measure (varchar),\"SZAVATME stands for warranty unit of measure, complementing SZAVATMENNY.\"\nWEBIGENDATUM,datetime,Web valid-until/end date (datetime),WEBIGENDATUM likely indicates the end or validity date for a web listing.\nSZEZONID,int,Season ID (int),\"SZEZONID is 'szezon ID,' referencing a season identifier.\"\nWEBKERESO,varchar,Web search info (varchar),WEBKERESO may store web search or SEO-related information.\nBERENDKOD,int,Order/purchase code (int),\"BERENDKOD merges 'bejövő rendelés' and 'kód,' indicating a purchase order code.\"\nBERENDSTATUS2,int,Order status 2 (int),\"BERENDSTATUS2 merges 'bejövő rendelés' (incoming order) and 'status,' referencing a second order status.\"\nKIKESZITSTATUS2,int,Preparation status 2 (int),\"KIKESZITSTATUS2 is 'kikészítés státusz,' referencing a second picking/preparation status.\"\nBIZONYLATSZAM,varchar,Document number (varchar),\"BIZONYLATSZAM is 'bizonylat szám,' referencing a document number.\"\nBTKOD,int,Document type code (int),\"BTKOD is short for 'bizonylat típus kód,' referencing a document type code.\"\nBIZDATUM,datetime,Document date (datetime),\"BIZDATUM is 'bizonylat dátum,' indicating a document date.\"\nDEVNETTO,numeric,Net amount in foreign currency (numeric),DEVNETTO merges 'deviza' (foreign currency) and 'nettó' (net amount).\nIDOSZAK,varchar,Period/time interval (varchar),\"IDOSZAK is 'időszak,' Hungarian for period or time interval.\"\nBIZALLID,int,Document status/allocation ID (int),BIZALLID likely merges 'bizonylat' (document) and 'állapot' (status) for an allocation ID.\nIDEGENMEGRSZAM,varchar,Foreign order number (varchar),\"IDEGENMEGRSZAM is 'idegen megrendelés szám,' referencing a foreign order number.\"\nRENDHIVSZAM,varchar,Order reference number (varchar),RENDHIVSZAM merges 'rendelés' (order) and 'hivatkozási szám' (reference number).\nUGYINTEZOID,int,Agent/administrator ID (int),\"UGYINTEZOID is 'ügyintéző ID,' referencing an agent or administrator.\"\nUGYINTEZONEV,varchar,Agent/administrator name (varchar),\"UGYINTEZONEV is 'ügyintéző név,' referencing the name of the agent or administrator.\"\nPARTNERCIMID,int,Partner address ID (int),PARTNERCIMID merges 'partner' and 'cím' (address) for an address ID.\nPARTNERCIMNEV2,varchar,Partner address name 2 (varchar),PARTNERCIMNEV2 references a second name or descriptor for the partner's address.\nPARTNERCIMID2,int,Partner address ID 2 (int),PARTNERCIMID2 is a second ID referencing the partner's address.\nPARTNERCIMNEV,varchar,Partner address name (varchar),PARTNERCIMNEV references the main partner address name field.\nBERENDTIPUS,int,Purchase order type (int),\"BERENDTIPUS merges 'bejövő rendelés' (incoming order) with 'típus,' referencing the purchase order type.\"\nFIZMODID,int,Payment method ID (int),FIZMODID references a payment method (fizetési mód) table ID.\nKDNEM,varchar,Alternate currency code (varchar),\"KDNEM stands for 'kiegészítő deviza neme,' referencing an alternate currency code.\"\nSZALLDATUM,datetime,Shipping date (datetime),\"SZALLDATUM is 'szállítás dátum,' indicating a shipping date.\"\nFELELOSKOD,int,Person in charge code (int),FELELOSKOD merges 'felelős' (responsible) with 'kód' (code).\nARFTIPKOD,int,Exchange rate type code (int),\"ARFTIPKOD is 'árfolyam típus kód,' referencing an exchange rate type code.\"\nARFDATUM,datetime,Exchange rate date (datetime),\"ARFDATUM is 'árfolyam dátum,' indicating the exchange rate date.\"\nARFOLYAM,numeric,Exchange rate (numeric),\"ARFOLYAM is 'árfolyam,' referencing an exchange rate.\"\nBIZMEMOKOD,int,Document memo code (int),\"BIZMEMOKOD merges 'bizonylat' (document), 'memo' (note), and 'kód' (code).\"\nBIZMEMO,varchar,Document memo (varchar),BIZMEMO is a memo field linked to a document (bizonylat).\nDEVAFA,numeric,Tax in foreign currency (numeric),\"DEVAFA merges 'deviza' (foreign currency) and 'áfa' (VAT), indicating tax in foreign currency.\"\nBIZEREDMENYKOD,varchar,Document result code (varchar),\"BIZEREDMENYKOD merges 'bizonylat,' 'eredmény,' and 'kód,' referencing a document result code.\"\nPELDANYSZAM,int,Number of copies (int),\"PELDANYSZAM is 'példányszám,' indicating the number of copies.\"\nUGYFID,int,Client ID (int),UGYFID merges 'ügyfél' (client) and 'ID.'\nRENDLEZARIDO,datetime,Order closing time (datetime),\"RENDLEZARIDO is 'rendelés lezárási idő,' referencing the order closing time.\"\nBIZFAJTA,int,Document type (int),\"BIZFAJTA is 'bizonylat fajtája,' referencing the document type.\"\nERKDATUM,datetime,Receiving date (datetime),\"ERKDATUM is an abbreviation for 'érkezési dátum,' referencing the receiving date.\"\nKAMPANYID,int,Campaign ID (int),KAMPANYID merges 'kampány' (campaign) with 'ID.'\nRUMOTGENERAL,int,Generate movement? (int),\"RUMOTGENERAL might be 'Raktár Utasítás Manager' plus 'general,' indicating a flag to generate a movement.\"\nDKEREKITES,int,Down/other rounding (int),DKEREKITES likely stands for 'downward rounding' or a specific rounding method.\nKKEREKITES,int,Up/other rounding (int),\"KKEREKITES might indicate another rounding approach, possibly upward or different rounding.\"\nVEGFELHASZNALOID,int,End-user ID (int),VEGFELHASZNALOID merges 'végfelhasználó' (end-user) and 'ID.'\nVEGFELHCIMID,int,End-user address ID (int),VEGFELHCIMID is the address ID for the end user (végfelhasználó).\nVEGFELHUGYINID,int,End-user agent ID (int),VEGFELHUGYINID references the agent or handler ID for the end user.\nVEGFELHSZALLMOD,int,End-user shipping mode (int),VEGFELHSZALLMOD indicates the shipping mode for the end user (végfelhasználó).\nENGEDELYEZETT,int,Permitted/authorized (int),ENGEDELYEZETT is Hungarian for 'permitted' or 'authorized.'\nFIZELOLEG,numeric,Deposit/prepayment amount (numeric),\"FIZELOLEG merges 'fizetett' (paid) and 'előleg' (deposit), referencing a prepayment amount.\"\nWEBAZON,uniqueidentifier,Web identifier (uniqueidentifier),WEBAZON is likely a GUID referencing a web identifier.\nVEGFATVCIMID,int,End-user invoice address ID (int),VEGFATVCIMID indicates the end user's invoice address ID.\nTRANZAKCIO_AZON,varchar,Transaction identifier (varchar),\"TRANZAKCIO_AZON merges 'tranzakció' and 'azonosító,' referencing a transaction identifier.\"\nBANKKARTYAS_OSSZEG,numeric,Bank card amount (numeric),BANKKARTYAS_OSSZEG references the amount paid by bank card.\nKISZAMLAKOD,int,Small invoice code (int),KISZAMLAKOD merges 'kis számla' (small invoice) with 'kód' (code).\nTELJDATUM,datetime,Fulfillment date (datetime),\"TELJDATUM is short for 'teljesítési dátum,' referencing the fulfillment date.\"\nBIZALTIPKOD,int,Document sub-type code (int),\"BIZALTIPKOD might merge 'bizonylat típus' and 'kód,' referencing a document sub-type code.\"\nMEGJRAKTAR,varchar,Warehouse note/comment (varchar),MEGJRAKTAR merges 'megjegyzés' (comment) and 'raktár' (warehouse).\nAFATIPUS,int,VAT type (int),\"AFATIPUS is 'áfa típus,' referencing a type of VAT.\"\nFOLYTIPUSID,int,Process/workflow type ID (int),\"FOLYTIPUSID merges 'folyamat típus' and 'ID,' indicating a workflow type ID.\"\nARTIPUS,int,Price type (int),\"ARTIPUS stands for 'ár típus,' referencing a price type.\"\nBIZTIPSZORZO,int,Document type multiplier (int),BIZTIPSZORZO may be a multiplier related to a specific document type.\nBIZTIPSZAM,int,Document type counter (int),BIZTIPSZAM is a sequence number or counter for the document type.\nHIVSZAM,varchar,Reference number (varchar),\"HIVSZAM is 'hivatkozási szám,' referencing a reference number.\"\nUGYLETKOD,int,Transaction code (int),UGYLETKOD merges 'ügylet' (transaction) and 'kód' (code).\nFIZHAT,datetime,Payment due date (datetime),\"FIZHAT stands for 'fizetési határidő,' referencing the payment due date.\"\nKONYVDATUM,datetime,Bookkeeping date (datetime),\"KONYVDATUM is 'könyvelési dátum,' referencing the bookkeeping date.\"\nKISZAMLAOPCIOK,int,Small invoice options (int),KISZAMLAOPCIOK merges 'kis számla' (small invoice) and 'opciók' (options).\nNETTO,numeric,Net amount (numeric),NETTO indicates the net amount (without tax).\nAFA,numeric,VAT amount (numeric),AFA is Hungarian for value-added tax (VAT).\nDEVTARTOZAS,numeric,Debt in foreign currency (numeric),DEVTARTOZAS merges 'deviza' (foreign currency) and 'tartozás' (debt).\nTARTOZAS,numeric,Debt (numeric),TARTOZAS is Hungarian for 'debt' or 'owing.'\nBIZSTATUS,int,Document status (int),BIZSTATUS likely indicates a numeric status for a document.\nKONYVSTATUS,int,Bookkeeping status (int),KONYVSTATUS references the bookkeeping status ('könyvelési státusz').\nSTORNOBKOD,int,Cancellation doc code (int),STORNOBKOD merges 'storno' (cancellation) and 'bizonylat kód' (document code).\nBEKERAR,numeric,Purchase price (numeric),\"BEKERAR is 'beszerzési ár,' referencing a purchase price.\"\nKBEKERAR,numeric,Purchase price (alt currency) (numeric),KBEKERAR may reference a purchase price in an alternate currency or context.\nMASNPELDANY,int,Other copy count (int),MASNPELDANY merges 'más' (other) and 'példány' (copy).\nPTIPUS,int,Partner/doc type (int),PTIPUS indicates a partner or document type reference.\nVISZONYLAT,int,Relation/route (int),VISZONYLAT is Hungarian for 'relation' or 'route.'\nJUTFELHKOD,int,Beneficiary/recipient code (int),\"JUTFELHKOD might be short for 'juttatás felhasználó kód,' referencing a beneficiary code.\"\nALAIROID,int,Signer ID (int),ALAIROID merges 'aláíró' (signer) and 'ID.'\n\n```\n\nWhen I provide you with a new set of fields in a csv format like this:\n\n```\nTable,field,type\nSZAMLA,FORGID,int\nSZAMLA,TARTOZAS,numeric\n```\n\nyou will:\n\nParse each row which corresponds to a table name, a field name, and a SQL type.\n\nMatch the field name in your internal CSV reference. If there is an exact or close match in your CSV data, retrieve its Description and Reason.\n\nIf you cannot find a field in your CSV data:\n\nMake your best guess based on the name (possibly Hungarian, English, or mixed).\nProvide a plausible Description and a short Reason that explains your inference.\nOutput the results:\n\n* Table\n* Field\n* Type\n* Description\n* Reason (Or any other consistent format including these elements.)\n\nEnsure the description and reason are in the same style as my manual entries, clearly capturing what the field name most likely means and why you think so.\n\nPreserve the table name, field name, and type from the input; only the description and reason come from your CSV or your best guess.\n\nImportant:\n\nIf the field matches an entry in the CSV exactly, use the CSV’s description and reason.\nIf it partially matches or is not present in the CSV, infer the meaning from the field name.\nKeep your explanations concise but clear.\nYou need to output the result in csv format single table. I need you to process the entire file not just subset. \nI need you to do the work, I do not need to be told how I should do the work."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "message": "={{ $json.data}}"
+            }
+          ]
+        }
+      },
+      "id": "687148d3-cc5c-4745-b529-cdc09e4a3c25",
+      "name": "Transcribe to Markdown",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        300,
+        -360
+      ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "content": "## 2. Extract Key Data Confidently From the pages\n",
+        "height": 814,
+        "width": 600,
+        "color": 7
+      },
+      "id": "2ce27c3c-1aa7-4259-ab48-8796882d641e",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        40,
+        -520
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "File",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -380,
+        -300
+      ],
+      "id": "b8c06895-8894-4d22-8734-8ebe32afc497",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "options": {
+          "maxTokens": -1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        -140
+      ],
+      "id": "6f3d676b-50cf-40f9-8327-dea95cfe653a",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "EbgUQHHVacMd0igH",
+          "name": "OpenAi account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "FTP Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP List files on ftp": {
+      "main": [
+        [
+          {
+            "node": "Filter only PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick file": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter only PDFs": {
+      "main": [
+        [
+          {
+            "node": "Pick file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Upload file via SSH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date creation": {
+      "main": [
+        [
+          {
+            "node": "FTP List files on ftp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file via SSH": {
+      "main": [
+        [
+          {
+            "node": "Move file to folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move file to folder": {
+      "main": [
+        [
+          {
+            "node": "FTP Move file to Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "FTP Move file to Processing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "FTP Move file to Processing": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP Move file to Done": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "FTP Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Date creation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Data": {
+      "main": [
+        []
+      ]
+    },
+    "Transcribe to Markdown": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Transcribe to Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Transcribe to Markdown",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "837e3fad-8a83-4c8a-b143-56826bfe6f9d",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "ctgamsgCdA4ah8jv",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

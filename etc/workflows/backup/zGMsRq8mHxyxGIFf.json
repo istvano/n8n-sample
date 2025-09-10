@@ -1,0 +1,593 @@
+{
+  "createdAt": "2025-03-08T06:59:45.804Z",
+  "updatedAt": "2025-04-07T03:11:19.598Z",
+  "id": "zGMsRq8mHxyxGIFf",
+  "name": "Import Posting",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a1b65a-0f17-4af4-a6ba-ffd34b643618",
+              "leftValue": "={{ $json.worker_uid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3ff997b1-71a4-45b0-b832-869e0adf47d2",
+              "leftValue": "={{ $json.worker_uid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -220,
+        40
+      ],
+      "id": "b6f2c7f2-6b74-42f0-a405-f779dd3a64a2",
+      "name": "Remove invalid entries"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        -260
+      ],
+      "id": "28d7ab2e-2b4f-41fd-ab65-d9f6bfa70d55",
+      "name": "When clicking ‘Test workflow’",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { nanoid } = require('nanoid');\n\nconst normalize = val => (!val ? \"\" : String(val).trim());\n\n// Check if an upserted employment is empty.\n// Key fields: employment_country, issuer.name, start, end.\nconst isEmptyEmploymentUpserted = upEmp =>\n  normalize(upEmp.employment_country) === \"\" &&\n  normalize(upEmp.issuer?.name) === \"\" &&\n  normalize(upEmp.start) === \"\" &&\n  normalize(upEmp.end) === \"\";\n\n// Compare key employment fields (existing vs. upserted).\n// Existing employment uses date_from/date_to; upserted uses start/end.\nconst areEmploymentFieldsEqual = (existing, upEmp) =>\n  normalize(existing.employment_country) === normalize(upEmp.employment_country) &&\n  normalize(existing.issuer?.name) === normalize(upEmp.issuer?.name) &&\n  normalize(existing.date_from) === normalize(upEmp.start) &&\n  normalize(existing.date_to) === normalize(upEmp.end);\n\n// Check if an upserted posting is empty.\n// Key fields: posting_country, posting_activity_name, lending_activity_name,\n// type, code, from, to, borrower.code.\nconst isEmptyPostingUpserted = upPosting =>\n  normalize(upPosting.posting_country) === \"\" &&\n  normalize(upPosting.posting_activity_name) === \"\" &&\n  normalize(upPosting.lending_activity_name) === \"\" &&\n  normalize(upPosting.type) === \"\" &&\n  normalize(String(upPosting.code)) === \"\" &&\n  normalize(upPosting.from) === \"\" &&\n  normalize(upPosting.to) === \"\" &&\n  normalize(upPosting.borrower?.code) === \"\";\n\n// Compare key posting fields (existing vs. upserted).\n// Existing posting uses date_from/date_to; upserted uses from/to.\nconst arePostingFieldsEqual = (existing, upPosting) =>\n  normalize(existing.posting_country) === normalize(upPosting.posting_country) &&\n  normalize(existing.posting_activity_name) === normalize(upPosting.posting_activity_name) &&\n  normalize(existing.lending_activity_name) === normalize(upPosting.lending_activity_name) &&\n  normalize(existing.type) === normalize(upPosting.type) &&\n  normalize(existing.code) === normalize(upPosting.code) &&\n  normalize(existing.date_from) === normalize(upPosting.from) &&\n  normalize(existing.date_to) === normalize(upPosting.to) &&\n  normalize(existing.borrower?.code) === normalize(upPosting.borrower?.code);\n\n// Main processing function: generate CQRS commands.\nfunction generateCommands(existingWorkerEmployment, upsertedWorkerEmployment) {\n\n  const commands = [];\n  const uid = String(upsertedWorkerEmployment.worker.uid);\n  const upEmp = upsertedWorkerEmployment.worker.employment;\n\n  const matchingEmployment = existingWorkerEmployment && existingWorkerEmployment.employments ? existingWorkerEmployment.employments.find(emp =>\n    String(emp.code) === String(upEmp.code) &&\n    emp.lender?.code === upEmp.lender?.code\n  ) : undefined;\n\n  if (matchingEmployment) {\n    // If the incoming employment fields are all empty, issue a DELETE.\n    if (isEmptyEmploymentUpserted(upEmp)) {\n      commands.push({\n        type: \"employment/DELETE\",\n        value: {\n          id: matchingEmployment.id,\n          uid: uid\n        }\n      });\n      // Also delete any associated postings.\n      (matchingEmployment.postings || []).forEach(post => {\n        commands.push({\n          type: \"posting/DELETE\",\n          value: {\n            id: post.id,\n            uid: uid,\n            code: String(upEmp.code)\n          }\n        });\n      });\n    } else {\n      // Upserted employment is not empty.\n      // If key fields differ, issue an UPDATE. If identical, do nothing.\n      if (!areEmploymentFieldsEqual(matchingEmployment, upEmp)) {\n        commands.push({\n          type: \"employment/UPDATE\",\n          value: {\n            id: matchingEmployment.id,\n            uid: uid,\n            employment: {\n              code: String(upEmp.code),\n              employmentCountry: upEmp.employment_country,\n              insurrer: upEmp.issuer?.name,\n              from: upEmp.start,\n              to: upEmp.end,\n              lender: upEmp.lender?.code\n            }\n          }\n        });\n      }\n\n      // Process posting within the employment.\n      const upPosting = upEmp.posting;    \n      if (upPosting) {\n        // Find matching posting using cost_center_id and start date.\n        const matchingPosting = (matchingEmployment.postings || []).find(post =>\n          post.cost_center_id === upPosting.cost_center_id &&\n          String(post.date_from) === String(upPosting.from)\n        );\n        if (matchingPosting) {\n          // If upserted posting is empty, issue a DELETE.\n          if (isEmptyPostingUpserted(upPosting)) {\n            commands.push({\n              type: \"posting/DELETE\",\n              value: {\n                id: matchingPosting.id,\n                uid: uid,\n                code: String(upEmp.code)\n              }\n            });\n          } else {\n            // If key posting fields differ, issue an UPDATE.\n            if (!arePostingFieldsEqual(matchingPosting, upPosting)) {\n              commands.push({\n                type: \"posting/UPDATE\",\n                value: {\n                  id: matchingPosting.id,\n                  uid: uid,\n                  code: String(upEmp.code),\n                  posting: {\n                    posting_country: upPosting.posting_country,\n                    cost_center_id: upPosting.cost_center_id,\n                    posting_activity_name: upPosting.posting_activity_name,\n                    lending_activity_name: upPosting.lending_activity_name,\n                    type: upPosting.type,\n                    code: String(upPosting.code),\n                    from: upPosting.from,\n                    to: upPosting.to,\n                    borrower: upPosting.borrower?.code\n                  }\n                }\n              });\n            }\n          }\n        } else {\n          // No matching posting exists.\n          if (!isEmptyPostingUpserted(upPosting)) {\n            commands.push({\n              type: \"posting/CREATE\",\n              value: {\n                id: nanoid(),\n                uid: uid,\n                code: String(upEmp.code),\n                posting: {\n                  posting_country: upPosting.posting_country,\n                  cost_center_id: upPosting.cost_center_id,\n                  posting_activity_name: upPosting.posting_activity_name,\n                  lending_activity_name: upPosting.lending_activity_name,\n                  type: upPosting.type,\n                  code: String(upPosting.code),\n                  from: upPosting.from,\n                  to: upPosting.to,\n                  borrower: upPosting.borrower?.code\n                }\n              }\n            });\n          }\n        }\n      }\n    }\n  } else {\n    // No matching employment exists.\n    // If the upserted employment is not empty, create it.\n    if (!isEmptyEmploymentUpserted(upEmp)) {\n      const newEmploymentId = nanoid();\n      commands.push({\n        type: \"employment/CREATE\",\n        value: {\n          id: newEmploymentId,\n          uid: uid,\n          employment: {\n            code: String(upEmp.code),\n            employmentCountry: upEmp.employment_country,\n            insurrer: upEmp.issuer?.name,\n            from: upEmp.start,\n            to: upEmp.end,\n            lender: upEmp.lender?.code\n          }\n        }\n      });\n      // Create the posting if provided and not empty.\n      if (upEmp.posting && !isEmptyPostingUpserted(upEmp.posting)) {\n        commands.push({\n          type: \"posting/CREATE\",\n          value: {\n            id: nanoid(),\n            uid: uid,\n            code: String(upEmp.code),\n            posting: {\n              posting_country: upEmp.posting.posting_country,\n              cost_center_id: upEmp.posting.cost_center_id,\n              posting_activity_name: upEmp.posting.posting_activity_name,\n              lending_activity_name: upEmp.posting.lending_activity_name,\n              type: upEmp.posting.type,\n              code: String(upEmp.posting.code),\n              from: upEmp.posting.from,\n              to: upEmp.posting.to,\n              borrower: upEmp.posting.borrower?.code\n            }\n          }\n        });\n      }\n    }\n  }\n\n  return commands;\n}\n\n\nconst existingEmployment = $json.existingWorkerEmployment\nconst upsertedEmployment = $json.upsertedWorkerEmployment\n\nconst allCommands = generateCommands(existingEmployment, upsertedEmployment);\n\n\nreturn {\n    commands: allCommands\n};\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        80
+      ],
+      "id": "479347d9-6d47-4727-bedf-f28a97331e30",
+      "name": "Create commands"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['BER_API_ENDPOINT'] }}/commandbus/dispatch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env['BER_API_AUTH_TOKEN']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"commands\": {{ JSON.stringify($json.commands) }}\n  }\n]\n",
+        "options": {}
+      },
+      "id": "e0a48792-9701-4a9c-a27f-e56ca375276d",
+      "name": "Send commands to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1520,
+        80
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abc90ecf-8d35-4167-871c-fee991880ace",
+              "leftValue": "={{ $json.commands }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        280
+      ],
+      "id": "23213f02-5a05-4a82-ab57-619bd5eab960",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n/**\n * Maps an array of CommandStatus objects to a list of strings according to these rules:\n * 1) If success and isValid are both true => \"type: ok\"\n * 2) If isValid is false => log validationErrors, return \"type: errors\"\n * 3) If success is false => log executionError, return \"type: errors\"\n * 4) Otherwise => \"type: unknown state\"\n */\nfunction mapCommandStatuses(commands) {\n  return commands.map(command => {\n    // 1) If both success and isValid are true => \"type: ok\"\n    if (command.success && command.isValid) {\n      return `${command.type}: ok`;\n    }\n\n    // 2) If isValid is false => list validationErrors, return \"type: errors\"\n    if (!command.isValid) {\n      const errors = command.validationErrors || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 3) If success is false => list executionError, return \"type: errors\"\n    if (!command.success) {\n      const errors = command.executionError || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 4) Fallback (unexpected state)\n    return `${command.type}: unknown state`;\n  });\n}\n\nconst results = mapCommandStatuses(data);\n\nreturn {\n  'response': results ? results.join(', '): 'empty'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        160
+      ],
+      "id": "edb2f43b-e2cf-49b4-a5f9-93eadddde314",
+      "name": "Convert response to string"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  'response': 'no change'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        480
+      ],
+      "id": "0a791c2d-63ce-4da6-8007-a4ae5393e8d8",
+      "name": "Set empty response"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=processed_{{ $('Form').item.json['File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        820,
+        -400
+      ],
+      "id": "f4dc4d7e-fffd-4652-b316-9fbcdcb7f88b",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az Dolgozok feltoltes feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "ab8a16f4-2b89-45e8-b4a7-662ef78dc3b5",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1240,
+        -400
+      ],
+      "webhookId": "d39052e0-fcc6-410a-b7bb-7839471e9436",
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        820,
+        280
+      ],
+      "id": "6dca7f55-d9f8-4fd9-a8f8-34e17c954090",
+      "name": "Merge New with Existing"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        60,
+        40
+      ],
+      "id": "a253e48e-2f34-4f12-b9b7-799efefd27e4",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        980
+      ],
+      "id": "f43beb8b-7bc5-40fb-8039-dfa63c468f25",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "={{$env['BER_GRAPHQL_ENDPOINT']}}",
+        "query": "query getWorkerPostings($limit: Int, $offset: Int, $workerWhere: worker_bool_exp, $postingWhere: posting_bool_exp) {\n  worker(limit: $limit, offset: $offset, where: $workerWhere) {\n    id,\n    uid\n    employments(limit: 10, order_by: {date_from: desc}, where: {archived: {_eq: \"ACTIVE\"}}) {\n      id\n      date_from\n      date_to      \n      employment_country\n      code\n      lender {\n        id\n        name\n        code\n      }\n      issuer {\n        id\n        name\n        type\n      }      \n      postings (order_by: {date_from: desc}, where: $postingWhere) {\n        id\n        date_from\n        date_to\n        type\n        posting_activity_name\n        lending_activity_name\n        code\n      \tposting_country\n      \tcost_center_id\n        borrower {\n          id\n          name\n          code\n        }\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"limit\": 1,\n  \"offset\": 0,\n  \"postingWhere\": {\n   \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"cost_center_id\": {\n          \"_eq\": \"{{ $json.cost_center_id }}\"\n        }\n      }\n     ]\n  },\n  \"workerWhere\": {\n   \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"uid\": {\n          \"_eq\": \"{{ $json.worker_uid }}\"\n        }\n      }\n    ]\n  }\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        380,
+        60
+      ],
+      "id": "33cf50d0-6ecd-452a-8a06-8291b9fcd5eb",
+      "name": "Load Worker Posting",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Y4AtWUgOfsqxWN4R",
+          "name": "Hasura Admin Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const parseCostCenterId = (costCenterId) => {\n  \n  if (typeof costCenterId === \"string\" && costCenterId.includes(\"-\")) {\n    const parts = costCenterId.split(\"-\");    \n    return {\n        lender: parts.length>0 ? parts[0] : '',\n        division: parts.length>1 ? parts[1]: '',\n        borrower: parts.length>2 ? parts[2] : '',\n        country: parts.length>3 ? parts[3] : '',\n        sequence: parts.length>4 ? parts[4] : '',\n      };\n  } else {\n    return {\n        lender: '',\n        division: '',\n        borrower: '',\n        country: '',\n        sequence: '',\n      };    \n  }\n}\n\nfunction restructureWorkerData(source) {\n  const costCenterInfo = parseCostCenterId(source.cost_center_id);\n  return {\n    worker: {\n      uid: source.worker_uid || '',\n      employment: {\n        code: source.employment_code || '',\n        start: source.employment_start || '',\n        end: source.employment_end || '',\n        employment_country: source.employment_country || '',\n        issuer: {\n          name: source.insurrer || ''\n        },\n        lender: {\n          code: costCenterInfo.lender || '',\n        },\n        posting: {\n          posting_country: source.posting_country || '',\n          cost_center_id: source.cost_center_id || '',\n          posting_activity_name: source.posting_activity_name || '',\n          lending_activity_name: source.lending_activity_name || '',\n          type: source.posting_type || '',\n          code: source.posting_code || '',\n          from: source.posting_date_from || '',\n          to: source.posting_date_to || '',\n          borrower: {\n            code: costCenterInfo.borrower || '',\n          }\n        }\n      }\n    }\n  };\n}\n\nconst data = $input.item.json;\n\n\nreturn {\n  upsertedWorkerEmployment: restructureWorkerData(data)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        520
+      ],
+      "id": "96f06848-13a0-4a1c-ac30-4ff560ee2967",
+      "name": "UpsertedWorkerPosting"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Normalizes the input to return a single object.\n *\n * - If input is null, returns an empty object.\n * - If input is an array:\n *    - Returns the first element if the array is not empty.\n *    - Returns an empty object if the array is empty.\n * - If input is a single object, returns the object.\n *\n * @param {Object | Object[] | null} input - The input value to normalize.\n * @returns {Object} - A normalized object.\n */\nfunction normalizeInput(input) {\n  // Check if the input is null.\n  if (input === null) {\n    return {};\n  }\n  \n  // Check if the input is an array.\n  if (Array.isArray(input)) {\n    // Return the first element if available, otherwise an empty object.\n    return input.length ? input[0] : {};\n  }\n  \n  // If it's a single object, return it as is.\n  if (typeof input === 'object') {\n    return input;\n  }\n  \n  // Fallback: in unexpected cases, return an empty object.\n  return {};\n}\n\nfunction reformatDates(data) {\n\n  const reformatDate = (dateStr) => dateStr ? dateStr.replace(/-/g, '.') : dateStr;\n\n  if (data && data.uid && data.employments) {\n      return {\n        ...data,\n        employments: data.employments.map(employment => ({\n          ...employment,\n          date_from: reformatDate(employment.date_from),\n          date_to: reformatDate(employment.date_to),\n          postings: employment.postings.map(activity => ({\n            ...activity,\n            date_from: reformatDate(activity.date_from),\n            date_to: reformatDate(activity.date_to),\n          }))\n        }))\n      };\n  } else {\n    return data;\n  }\n  \n}\n\nconst worker = normalizeInput($input.item.json.data?.worker || {});\n\nreturn {\n  existingWorkerEmployment:  reformatDates(worker)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -60
+      ],
+      "id": "36e305f1-58a9-41e7-86e7-4a528c2b0d52",
+      "name": "LoadedWorkerPosting"
+    },
+    {
+      "parameters": {
+        "formTitle": "Jogi személyek importálása",
+        "formDescription": "Ez az űrlap lehetőséget biztosít kikuldetesek adatinak importálására. Kérjük, töltsd fel az xlsx kiterjesztésű fájlt, amely a kikuldetesek adatait tartalmazza, a Fájl mezőbe, majd add meg azt az email címet, amelyre a rendszer az importálás eredményét elküldi.\n\nAz importálási folyamat a következő lépéseket tartalmazza:\n\nFájl feltöltése: Az xlsx formátumú fájlban található dolgozók alapján történik az importálás.\n\nEredmény email: Az importálás befejezése után a rendszer automatikusan küld egy emailt a megadott címre, amely tartalmazza az importálási folyamat eredményét és esetleges hibajelentéseket.\n\nKérjük, győződj meg róla, hogy a feltöltött fájl helyes formátumban van, és a megadott email cím érvényes!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "*.xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A File feldolgozása megkezdödött"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -920,
+        40
+      ],
+      "id": "625fcba1-9fd2-4c9d-88df-0d7cfda8f5d9",
+      "name": "Form",
+      "webhookId": "601971c4-2dfa-47ef-81ea-b7911fe9b9a8"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "File",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -580,
+        40
+      ],
+      "id": "6d68f783-c9ae-494b-8af1-1e4d68774251",
+      "name": "Extract from File1"
+    }
+  ],
+  "connections": {
+    "Remove invalid entries": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create commands": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send commands to API": {
+      "main": [
+        [
+          {
+            "node": "Convert response to string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send commands to API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set empty response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert response to string": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set empty response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge New with Existing": {
+      "main": [
+        [
+          {
+            "node": "Create commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UpsertedWorkerPosting",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Worker Posting",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Worker Posting": {
+      "main": [
+        [
+          {
+            "node": "LoadedWorkerPosting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertedWorkerPosting": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "LoadedWorkerPosting": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File1": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "7e8b8d19-11f6-4291-97e1-2a34313c299d",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "zGMsRq8mHxyxGIFf",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

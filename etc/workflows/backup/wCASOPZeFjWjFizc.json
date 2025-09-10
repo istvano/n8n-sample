@@ -1,0 +1,707 @@
+{
+  "createdAt": "2025-07-21T04:56:29.969Z",
+  "updatedAt": "2025-08-08T03:00:41.280Z",
+  "id": "wCASOPZeFjWjFizc",
+  "name": "Import Garnishment",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "File",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        180
+      ],
+      "id": "ee1808f1-2900-4825-80d9-6a892aa44374",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a1b65a-0f17-4af4-a6ba-ffd34b643618",
+              "leftValue": "={{ $json.ugy_szam }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3ff997b1-71a4-45b0-b832-869e0adf47d2",
+              "leftValue": "={{ $json.ugy_szam }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e486194a-8e65-400d-b49d-929a14b1f8c4",
+              "leftValue": "={{ $json.azonosito }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "8b5e069e-62e1-4d91-afb5-f95f1e8984c4",
+              "leftValue": "={{ $json.azonosito }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "ce5c1171-4f25-4004-94e3-2ee0c1f7e7bc",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "492d5b45-4ee6-44b5-8cea-f129308aaa27",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -280,
+        -260
+      ],
+      "id": "87ed8077-8280-46ef-8177-6fb4e391d2b5",
+      "name": "Remove invalid entries"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        -260
+      ],
+      "id": "05a2061a-c0cc-48be-b32d-bf0649ce876f",
+      "name": "When clicking ‘Test workflow’",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { nanoid } = require('nanoid');\n\nfunction formatDate(isoString) {\n   if(!!isoString) {\n    \tconst date = new Date(isoString);\n    \tconst yyyy = date.getFullYear();\n    \tconst mm = String(date.getMonth() + 1).padStart(2, '0');\n    \tconst dd = String(date.getDate()).padStart(2, '0');\n    \treturn `${yyyy}.${mm}.${dd}`;\n   } else {\n     return isoString;\n   }\n}\n\nfunction generateLegalPersonCommands(existingLegalPersonList, legalPersonList) {\n  // Normalize codes for consistent lookups (always uppercase)\n  const normalizeCode = code => String(code).toUpperCase();\n\n  // Build lookup of existing persons by code\n  const existingByCode = existingLegalPersonList.reduce((map, person) => {\n    const code = normalizeCode(person.code);\n    const existingAccounts = new Set(\n      person.legal_person_bank_accounts.map(acc => acc.bank_account.account_number)\n    );\n    map[code] = { id: person.id, existingAccounts };\n    return map;\n  }, {});\n\n  // Group incoming rows by code\n  const incomingByCode = legalPersonList.reduce((groups, row) => {\n    const code = normalizeCode(row.legal_person_code);\n    if (!groups[code]) groups[code] = [];\n    groups[code].push(row);\n    return groups;\n  }, {});\n\n  const commands = [];\n\n  // Process each code-group in sequence: create person (if new), then address, then bank accounts\n  Object.entries(incomingByCode).forEach(([code, rows]) => {\n    const existing = existingByCode[code];\n    const isNewPerson = !existing;\n    const personId = isNewPerson ? nanoid() : existing.id;\n\n    // 1) If new person: CREATE legalPerson and its Address\n    if (isNewPerson) {\n      const sample = rows[0];\n      commands.push({\n        type: \"legalPerson/CREATE\",\n        value: {\n          id: personId,\n          name: sample.legal_person_name,\n          code,           // uppercase unique key\n          country: sample.legal_person_country\n        }\n      });\n      if (!!sample.legal_person_postcode) {\n      commands.push({\n        type: \"legalPersonAddress/CREATE\",\n        value: {\n          id: personId,\n          code,           // reference by code\n          toAddress: {\n            country: sample.legal_person_country,\n            postcode: String(sample.legal_person_postcode),\n            city: sample.legal_person_city || 'ismeretlen',\n            street: sample.legal_person_address || 'ismeretlen'\n          }\n        }\n      });\n      };\n    }\n\n    // 2) For each unique bank account row: CREATE account if missing\n    const seenAccounts = new Set();\n    rows.forEach(row => {\n      const acctNum = row.bank_account_number;\n      if (seenAccounts.has(acctNum)) return;\n      seenAccounts.add(acctNum);\n      const alreadyExists = !isNewPerson && existing.existingAccounts.has(acctNum);\n      if (!alreadyExists) {\n        commands.push({\n          type: \"legalPersonBankAccount/CREATE\",\n          value: {\n            id: personId,\n            code,\n            account: {\n              account_number: acctNum,\n              sort_code: row.bank_account_sort_code,\n              holder: row.legal_person_name,\n              bank_name: \"\",\n              currency: row.bank_account_currency\n            }\n          }\n        });\n      }\n    });\n  });\n\n  return commands;\n}\n\n/**\n * Generates commands to sync an existing deduction record with the incoming payload.\n */\nfunction generateCommands(existingWorker, existingDeduction, upsertedWorkerDeduction, deductionTypes, deductionGroups) {\n  const cmds = [];\n  \n  const lookupGroup = code => {\n    const grp = deductionGroups.find(g =>\n      g.name === code || g.slug === code.toLowerCase()\n    );\n    return grp ? grp.slug : code.toLowerCase();\n  };\n  \n  const normalizeParty = code =>\n    /^\\d+$/.test(code) ? String(code) : code.toUpperCase();\n\n  // ---- CREATE path ----\n  if (!existingDeduction || !existingDeduction.id) {\n    \n    const wdId = nanoid();\n    cmds.push({\n      type: 'workerDeduction/CREATE',\n      value: {\n        id: existingWorker.id,\n        uid: String(existingWorker.uid),\n        deductionId: wdId,\n        deduction: {\n          identifier: upsertedWorkerDeduction.external_id,\n          resolution: upsertedWorkerDeduction.resolution,\n          amount: upsertedWorkerDeduction.amount,\n          currency: upsertedWorkerDeduction.amount_currency,\n          category: upsertedWorkerDeduction.type,\n          algorithm: upsertedWorkerDeduction.alg,\n          parameters: upsertedWorkerDeduction.params,\n          first_month: upsertedWorkerDeduction.first_months,\n          months: upsertedWorkerDeduction.months,\n          start: formatDate(upsertedWorkerDeduction.period_start),\n          end:   formatDate(upsertedWorkerDeduction.period_end)          \n        }\n      }\n    });\n\n    // 3) create each deduction item\n    upsertedWorkerDeduction.deductions.forEach(d => {\n      cmds.push({\n        type: 'workerDeductionItem/CREATE',\n        value: {\n          id: wdId,\n          deductionItem: {\n            typeCode: String(d.type_code),\n            typeName: d.type_name,\n            accountNumber: d.bank_account_number,\n            bic: d.bank_account_sort_code || '',\n            isDeductionBase: Boolean(d.is_deduction_base),\n            group: lookupGroup(d.group_code),\n            amount: d.amount,\n            order: d.order,\n            currency: upsertedWorkerDeduction.amount_currency,\n            party: normalizeParty(d.legal_person_code)\n          }\n        }\n      });\n     });\n\n    return cmds;\n  }\n\n  // ---- UPDATE path ----\n\n  // 1) always resend all top‑level fields\n  cmds.push({\n    type: 'workerDeduction/UPDATE',\n    value: {\n      id: existingDeduction.worker.id,\n      uid: String(upsertedWorkerDeduction.worker.uid),\n      deduction: {\n        identifier: upsertedWorkerDeduction.external_id,\n        resolution: upsertedWorkerDeduction.resolution,\n        amount: upsertedWorkerDeduction.amount,\n        currency: upsertedWorkerDeduction.amount_currency,\n        category: upsertedWorkerDeduction.type,\n        algorithm: upsertedWorkerDeduction.alg,\n        parameters: upsertedWorkerDeduction.params,\n        first_month: upsertedWorkerDeduction.first_months,\n        months: upsertedWorkerDeduction.months,\n        start: formatDate(upsertedWorkerDeduction.period_start),\n        end:   formatDate(upsertedWorkerDeduction.period_end)\n      },\n      fromDeduction: {\n        id: existingDeduction.id\n      }\n    }\n  });\n\n  // 2) map existing items by type_code\n  const existingMap = {};\n  existingDeduction.worker_deduction_items.forEach(item => {\n    existingMap[item.deduction_type.slug] = item;\n  });\n\n  // 3) inserts/updates\n  const seen = new Set();\n  upsertedWorkerDeduction.deductions.forEach(d => {\n    const code  = String(d.type_code);\n    const party = normalizeParty(d.legal_person_code);\n    const group = lookupGroup(d.group_code);\n\n    if (existingMap[code]) {\n      // update existing\n      const e = existingMap[code];\n      cmds.push({\n        type: 'workerDeductionItem/UPDATE',\n        value: {\n          id: existingDeduction.id,\n          deductionItem: {          \n            typeCode: code,\n            typeName: d.type_name,\n            accountNumber: d.bank_account_number,\n            order: d.order,\n            bic: d.bank_account_sort_code || '',\n            isDeductionBase: Boolean(d.is_deduction_base),\n            group,\n            amount: d.amount,\n            currency: upsertedWorkerDeduction.amount_currency,\n            party\n          },\n          fromDeductionItem: {\n            id: e.id\n          }\n        }\n      });\n    } else {\n      // new item\n      cmds.push({\n        type: 'workerDeductionItem/CREATE',\n        value: {\n          id: existingDeduction.id,\n          deductionItem: {\n            typeCode: code,\n            typeName: d.type_name,\n            accountNumber: d.bank_account_number,\n            order: d.order,\n            bic: d.bank_account_sort_code || '',\n            isDeductionBase: Boolean(d.is_deduction_base),\n            group,\n            amount: d.amount,\n            currency: upsertedWorkerDeduction.amount_currency,\n            party\n          }\n        }\n      });\n    }\n\n    seen.add(code);\n  });\n\n  // 4) deletions\n  Object.keys(existingMap).forEach(code => {\n    if (!seen.has(code)) {\n      cmds.push({\n        type: 'workerDeductionItem/DELETE',\n        value: { id: existingMap[code].id }\n      });\n    }\n  });\n\n  return cmds;\n}\n\nconst existingWorker = $json.existingWorker;\nconst deductionGroups = $json.deductionGroups;\nconst deductionTypes = $json.deductionTypes;\nconst existingDeduction = $json.existingWorkerDeduction;\nconst upsertedWorkerDeduction = $json.upsertedWorkerDeduction;\nconst upsertedLegalPersonList = $json.upsertedWorkerDeduction?.legalPersonList || [];\nconst existingLegalPersonList = $json.existingLegalPersonList || [];\n\n// outer try/catch as requested in your example\ntry {\n\n  if (existingWorker && existingWorker.uid) {\n  const legalPersonCommands = generateLegalPersonCommands(existingLegalPersonList, upsertedLegalPersonList);\n  \n  const deductionCommands = generateCommands(\n    existingWorker,\n    existingDeduction,\n    upsertedWorkerDeduction,\n    deductionTypes,\n    deductionGroups\n  );\n    \n  return {\n    commands: [...legalPersonCommands, ...deductionCommands]\n  };\n    \n  } else {\n    throw new Error(\"Worker not found\");\n  }\n  \n} catch (err) {\n  return {\n    commands: [],\n    error: err.message\n  };\n}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -40
+      ],
+      "id": "1f06a08d-bea9-4b2c-af2f-0a4d26bbb4a3",
+      "name": "Create commands"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['BER_API_ENDPOINT'] }}/commandbus/dispatch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env['BER_API_AUTH_TOKEN']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"commands\": {{ JSON.stringify($json.commands) }}\n  }\n]\n",
+        "options": {}
+      },
+      "id": "cffbeff1-5269-43f5-b2ad-aac1dd146627",
+      "name": "Send commands to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1540,
+        -40
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abc90ecf-8d35-4167-871c-fee991880ace",
+              "leftValue": "={{ $json.commands }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        260
+      ],
+      "id": "b7717b01-271f-4da0-b9d8-5ad83559510e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n/**\n * Maps an array of CommandStatus objects to a list of strings according to these rules:\n * 1) If success and isValid are both true => \"type: ok\"\n * 2) If isValid is false => log validationErrors, return \"type: errors\"\n * 3) If success is false => log executionError, return \"type: errors\"\n * 4) Otherwise => \"type: unknown state\"\n */\nfunction mapCommandStatuses(commands) {\n  return commands.map(command => {\n    // 1) If both success and isValid are true => \"type: ok\"\n    if (command.success && command.isValid) {\n      return `${command.type}: ok`;\n    }\n\n    // 2) If isValid is false => list validationErrors, return \"type: errors\"\n    if (!command.isValid) {\n      const errors = command.validationErrors || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 3) If success is false => list executionError, return \"type: errors\"\n    if (!command.success) {\n      const errors = command.executionError || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 4) Fallback (unexpected state)\n    return `${command.type}: unknown state`;\n  });\n}\n\nconst results = mapCommandStatuses(data);\n\nreturn {\n  'response': results ? results.join(', '): 'empty'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        160
+      ],
+      "id": "f898d637-d2f9-46c7-a46b-258be7748966",
+      "name": "Convert response to string"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if ($json.error) {\n  return {\n    'response': $json.error\n  }\n} else {\n  return {\n    'response': 'no change'\n  }  \n}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        480
+      ],
+      "id": "a42aa9f7-6c51-42bb-8b53-75144a754266",
+      "name": "Set empty response"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=processed_{{ $('Form').item.json['File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        820,
+        -400
+      ],
+      "id": "105c6460-ceae-485c-8295-11a2b5e4c364",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az Dolgozok feltoltes feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "e0a9b0a0-f6c0-42a7-a371-4f97df87c304",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1240,
+        -400
+      ],
+      "webhookId": "511b715e-c794-4df1-b734-8f3dcf0bacef",
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Jogi személyek importálása",
+        "formDescription": "Ez az űrlap lehetőséget biztosít levonasok adatinak importálására. Kérjük, töltsd fel az xlsx kiterjesztésű fájlt, amely a levonasok adatait tartalmazza, a Fájl mezőbe, majd add meg azt az email címet, amelyre a rendszer az importálás eredményét elküldi.\n\nAz importálási folyamat a következő lépéseket tartalmazza:\n\nFájl feltöltése: Az xlsx formátumú fájlban található levonasok alapján történik az importálás.\n\nEredmény email: Az importálás befejezése után a rendszer automatikusan küld egy emailt a megadott címre, amely tartalmazza az importálási folyamat eredményét és esetleges hibajelentéseket.\n\nKérjük, győződj meg róla, hogy a feltöltött fájl helyes formátumban van, és a megadott email cím érvényes!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "*.xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A File feldolgozása megkezdödött"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -920,
+        40
+      ],
+      "id": "3bb2c700-0931-469c-955e-7edb563bd403",
+      "name": "Form",
+      "webhookId": "8da5db06-a7fe-4369-9c9b-21902c2ea0de"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        60,
+        40
+      ],
+      "id": "0d3d8384-8175-4387-9a03-104312dc0a6a",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        980
+      ],
+      "id": "1f9b14f0-9f97-4905-8e2b-8f643e24ce85",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const dateFields = [\"datum\", \"lejarat_datum\"];\nconst booleanFields = [\"jotalek_alap\"];\nconst numberFields = [\"teljes_osszeg\", \"osszeg\",\"levonas_honapok\"];\nconst fieldsToTrim = [\"ugy_szam\", \"azonosito\",\"sablon_szam\"];\n\n/**\n * Walks the given object’s specified fields, and for each value that is\n * defined, non‑null, non‑empty, and not NaN, invokes your callback.\n *\n * @param {object}   obj     – the object to mutate or inspect\n * @param {string[]} fields  – array of keys on `obj` to process\n * @param {function} fn      – callback(obj, field, value)\n */\nfunction processFields(obj, fields, fn) {\n  for (const field of fields) {\n    const value = obj[field];\n    if (\n      value !== undefined &&\n      value !== null &&\n      value !== '' &&\n      !isNaN(value)\n    ) {\n      fn(obj, field, value);\n    }\n  }\n}\n\nfunction trimValue(value) {\n  return typeof value === 'string'\n    ? value.trim()\n    : value;\n}\n\nfunction parseNumber(input, defaultValue = null) {\n  // Guard against null, undefined, or empty-string\n  if (input === null || input === undefined || input === '') {\n    return defaultValue;\n  }\n\n  // Normalize: trim strings & remove commas, leave numbers untouched\n  const cleaned = (typeof input === 'string')\n    ? input.trim().replace(/,/g, '')\n    : input;\n\n  // Attempt to coerce\n  const num = Number(cleaned);\n\n  // If it's a valid number, return it; else fallback\n  return Number.isFinite(num) ? num : defaultValue;\n}\n\nfunction parseBoolean(input, defaultValue = null) {\n  if (typeof input !== 'string') {\n    // Non-string inputs can be coerced or treated as unrecognized\n    return defaultValue;\n  }\n\n  const s = input.trim().toLowerCase();\n\n  // Define the truthy and falsy sets\n  const trueSet  = new Set(['true', 't', 'igen', 'i', '1' ]);\n  const falseSet = new Set(['false', 'f', 'nem', 'n', '0']);\n\n  if (trueSet.has(s))  return true;\n  if (falseSet.has(s)) return false;\n\n  return defaultValue;\n}\n\nfunction parseYearMonthDotString(value) {\n\tif (typeof value !== 'string') return null;\n\n\tconst match = value.match(/^(\\d{4})\\.(\\d{2})$/);\n\tif (!match) return null;\n\n\tconst year = parseInt(match[1], 10);\n\tconst month = parseInt(match[2], 10) - 1;\n\n\treturn new Date(Date.UTC(year, month, 1)).toISOString();\n}\n\nfunction normalizeFieldName(fieldName) {\n\treturn fieldName\n\t\t.normalize('NFD')                      // Decompose accented characters\n\t\t.replace(/[\\u0300-\\u036f]/g, '')       // Remove accents/diacritics\n\t\t.trim()\n\t\t.toLowerCase()\n\t\t.replace(/\\s+/g, '_')                  // Replace whitespace with underscore\n\t\t.replace(/[^a-z0-9_]/g, '_')           // Replace all except lowercase letters, numbers, and _\n\t\t.replace(/_+/g, '_');                  // Collapse multiple underscores\n}\n\nfunction normalizeAlg(field) {\n  // 1–2: extract & ensure string\n  const raw = field == null\n    ? \"\"                // missing or null/undefined → empty\n    : String(field);  // cast numbers/other types to string\n\n  // 3: trim whitespace\n  const alg = raw.trim().toLowerCase();\n\n  // 4: map values\n  switch (alg) {\n    case \"reszlet\":\n      return \"installments\";\n    case \"havi\":\n      return \"monthly\";\n    default:\n      return alg;        // empty stays empty, others untouched\n  }\n}\n\nfunction normalizeType(field) {\n  // 1–2: extract & ensure string\n  const raw = field == null\n    ? \"\"                // missing or null/undefined → empty\n    : String(field);  // cast numbers/other types to string\n\n  // 3: trim whitespace\n  const type = raw.trim().toLowerCase();\n\n  // 4: map values\n  switch (type) {\n    case \"letiltas\":\n      return \"GARNISHMENT\";\n    case \"eloleg\":\n      return \"ADVANCE\";\n    case \"eszkoz\":\n      return \"ASSET\";\n    default:\n      return alg;        // empty stays empty, others untouched\n  }\n}\n\nfunction excelDateToJSDate(serial) {\n\tconst msPerDay = 24 * 60 * 60 * 1000;\n\tconst excelEpoch = new Date(Date.UTC(1899, 11, 30));\n\treturn new Date(excelEpoch.getTime() + serial * msPerDay);\n}\n\nconst item = $input.item;\n\n// Process each item\nconst newItem = {};\n\nfor (const key in item.json) {\n    const cleanKey = normalizeFieldName(key);\n    newItem[cleanKey] = item.json[key];\n}\n\nnewItem[\"alg\"] = normalizeAlg(newItem[\"levonas_mod\"]);\nnewItem[\"type\"] = normalizeType(newItem[\"tipus\"]);\n\nprocessFields(newItem, dateFields, (o, key, val) => {\n  const numeric = parseFloat(val);\n  if (numeric > 20000 && numeric < 60000) {\n      o[key] = excelDateToJSDate(numeric).toISOString();\n  }\n});\n\nprocessFields(newItem, booleanFields, (o, key, val) => {\n  o[key] = parseBoolean(val, false);\n});\n\nprocessFields(newItem, fieldsToTrim, (o, key, val) => {\n  o[key] = trimValue(val);\n});\n\nprocessFields(newItem, numberFields, (o, key, val) => {\n  o[key] = parseNumber(val);\n});\n\nconst val = newItem.levonas_kezdete;\nconst parsed = parseYearMonthDotString(val);\nif (parsed) {\n\tnewItem.levonas_kezdete = parsed;\n}\n\nreturn newItem;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        180
+      ],
+      "id": "d17135c4-e886-4db7-9db7-9ab85a3fa779",
+      "name": "Normalize XLS"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "={{$env['BER_GRAPHQL_ENDPOINT']}}",
+        "query": "query getWorkerDeduction($limit: Int, $offset: Int, $workerWhere: worker_bool_exp, $deductionWhere: worker_deduction_bool_exp, $itemDeductionWhere: worker_deduction_item_bool_exp, $legalPersonWhere: legal_person_bool_exp) {\n  deduction_type {\n    id\n    name\n    slug\n  }\n  deduction_group {\n    id,\n    name\n    slug    \n  }\n  worker(limit: $limit, offset: $offset, where: $workerWhere) {\n    id\n    first_name\n    last_name\n    uid\n    title\n  }\n  legal_person(where: $legalPersonWhere) {\n    id\n    code\n    legal_person_bank_accounts(where: { archived:{ _eq: \"ACTIVE\"}}) {\n      bank_account {\n        id\n        currency\n        account_number\n        sort_code\n      }\n    }\n  }\n  worker_deduction(limit: $limit, offset: $offset, where: $deductionWhere) {\n    id\n    algorithm_name\n    algorithm_params\n    amount_currency\n    archived\n    external_identifier\n    period_start\n    period_end\n    category\n    status\n    resolution\n    amount\n    worker {\n      id\n      uid\n    }\n    worker_deduction_items(where: $itemDeductionWhere) {\n      id\n      amount\n      legal_person_bank_account {\n        id\n        from\n        legal_person_id\n        bank_account {\n          account_number\n          currency\n          holder\n          id\n          sort_code\n        }\n      }\n      archived\n      commission\n      commission_type\n      description\n      interest\n      interest_period_start\n      is_deduction_base\n      order\n      legal_person {\n        id\n        code\n        country\n        name\n      }\n      deduction_type {\n        category\n        id\n        is_deduction_base\n        name\n        order\n        slug\n      }\n    }\n  }\n}",
+        "variables": "={\n  \"limit\": 1,\n  \"offset\": 0,\n  \"workerWhere\": {\n   \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"uid\": {\n          \"_like\": \"{{ $json.workerDeduction.worker.uid}}\"\n        }\n      }\n    ]\n\t},\n  \"deductionWhere\": {\n    \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"external_identifier\": {\n          \"_ilike\": \"{{ $json.workerDeduction.external_id }}\"\n        }\n      }\n    ]    \n  },\n  \"itemDeductionWhere\":{\n    \t\"archived\": {\"_eq\": \"ACTIVE\"}\n  },\n  \"legalPersonWhere\" :{\n    \"archived\": {\"_eq\": \"ACTIVE\"},\n    \"code\":     { \"_in\": [{{ $json.legalPersonSearch }}] }\n  }\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        520,
+        -40
+      ],
+      "id": "850e11b0-834f-46ef-96aa-8c6622f85fe0",
+      "name": "Load Deduction",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Y4AtWUgOfsqxWN4R",
+          "name": "Hasura Admin Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Normalizes the input to return a single object.\n *\n * - If input is null, returns an empty object.\n * - If input is an array:\n *    - Returns the first element if the array is not empty.\n *    - Returns an empty object if the array is empty.\n * - If input is a single object, returns the object.\n *\n * @param {Object | Object[] | null} input - The input value to normalize.\n * @returns {Object} - A normalized object.\n */\nfunction normalizeInput(input) {\n  // Check if the input is null.\n  if (input === null) {\n    return {};\n  }\n  \n  // Check if the input is an array.\n  if (Array.isArray(input)) {\n    // Return the first element if available, otherwise an empty object.\n    return input.length ? input[0] : {};\n  }\n  \n  // If it's a single object, return it as is.\n  if (typeof input === 'object') {\n    return input;\n  }\n  \n  // Fallback: in unexpected cases, return an empty object.\n  return {};\n}\n\nfunction reformatDates(data) {\n\n  const reformatDate = (dateStr) => dateStr ? dateStr.replace(/-/g, '.') : dateStr;\n\n  if (data && data.id ) {\n      return {\n        ...data,\n          period_start: reformatDate(data.period_start),\n          period_end: reformatDate(data.period_end),\n      };\n  } else {\n    return data;\n  }\n  \n}\n\nconst worker = normalizeInput($input.item.json.data?.worker || {});\nconst deduction = normalizeInput($input.item.json.data?.worker_deduction || {});\nconst legalPerson = $input.item.json.data?.legal_person || [];\n\nconst deductionTypes = $input.item.json.data?.deduction_type || [];\nconst deductionGroups = $input.item.json.data?.deduction_group || [];\n\nreturn {\n  existingWorker: worker,\n  existingWorkerDeduction:  reformatDates(deduction),\n  existingLegalPersonList: legalPerson,\n  deductionTypes: deductionTypes,\n  deductionGroups: deductionGroups\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        -40
+      ],
+      "id": "175cde43-4a9b-4d07-ac55-8c420ad5fd52",
+      "name": "LoadedWorkerDeduction"
+    },
+    {
+      "parameters": {
+        "jsCode": "// List the fields you want at top level\nconst topFields = [\n  'dolgozo_nev',\n  'azonosito',\n  'ugy_szam',\n  'teljes_osszeg',\n  'datum',\n  'lejarat_datum',\n  'hatarozat_szam',\n  'penznem',\n  'alg',\n  'type',\n  'parameterek',\n  'levonas_honapok',\n  'levonas_kezdete'\n];\n\nconst grouped = {};\n\n// 1) Bucket each row under its ugy_szam\nfor (const item of this.items) {\n  const row = item.json;\n  const key = row.ugy_szam;\n  if (!grouped[key]) grouped[key] = [];\n  grouped[key].push(row);\n}\n\n// 2) Build one output item per group\nreturn Object.entries(grouped).map(([ugy_szam, records]) => {\n  // 2a) Extract top‑level values from the FIRST record\n  const first = records[0];\n  const topLevel = {};\n  for (const f of topFields) {\n    topLevel[f] = first[f];\n  }\n\n  // 2b) For each record, drop those topFields and keep the rest\n  const restRecords = records.map(r => {\n    // shallow-copy then remove\n    const copy = { ...r };\n    for (const f of topFields) {\n      delete copy[f];\n    }\n    return copy;\n  });\n\n  // 2c) Emit the merged object\n  return {\n    json: {\n      ...topLevel,\n      items: restRecords,\n    },\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -220,
+        180
+      ],
+      "id": "e262878a-5fb9-40cd-b72c-ad068d1c5bbe",
+      "name": "Group Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        940,
+        180
+      ],
+      "id": "276100dc-e3be-4d6c-a861-93b79aa98419",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $input.item.json;\n\n\nreturn {\n  upsertedWorkerDeduction: data.workerDeduction,\n  upsertedLegalPersonCodes: data.legalPersonCodes\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        280
+      ],
+      "id": "0637a47b-c32f-4cb5-8eca-e61f79e8977f",
+      "name": "UpsertedWorkerDeduction"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { v5 } = require('uuid');\n\nconst MY_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';\n\nconst ensureUniqueValue = (namespace) => (main, fallback) => {\n  if (!!main && main.length>0) {\n    return main;\n  } else if (!!fallback) {\n    return v5(fallback, namespace).replace(/-/g, '');\n  }\n}\n\nconst normalizePersonCode = ensureUniqueValue(MY_NAMESPACE);\n\n/**\n * Deduplicate an array of “legal person” objects by\n * the tuple (legal_person_code, bank_account_number).\n *\n * @param {any} items\n * @returns {Array<Object>} a new array with duplicates removed\n */\nfunction dedupeByCodeAndAccount(items) {\n  if (!Array.isArray(items)) return [];\n\n  const seen = new Map();\n  for (const item of items) {\n    // make sure code & account are strings, trimmed\n    const code    = item.legal_person_code\n      ? String(item.legal_person_code).trim()\n      : '';\n    const account = item.bank_account_number\n      ? String(item.bank_account_number).trim()\n      : '';\n\n    const key = `${code}|${account}`;\n    // only keep the first one we see\n    if (code && account && !seen.has(key)) {\n      seen.set(key, item);\n    }\n  }\n\n  return Array.from(seen.values());\n}\n\n/**\n * Remap an array of source objects into the target schema,\n * including legal person fields.\n *\n * @param {Array<Object>} data\n * @returns {Array<Object>}\n */\nconst remapLegalPerson = (data, currency) =>\n  data.map(({\n    szamlaszam,\n    bic,\n    kero_kod,\n    kero_nev,\n    kero_orszag,\n    kero_iranyito_szam,\n    kero_varos,\n    kero_cim\n  }) => ({\n\n    // new legal_person mappings\n    legal_person_code:       normalizePersonCode(kero_kod, szamlaszam),\n    legal_person_name:       typeof kero_nev === 'string'\n                              ? kero_nev.trim()\n                              : kero_nev,\n    legal_person_country:    kero_orszag ?? \"\",\n    legal_person_postcode:   kero_iranyito_szam ?? \"\",\n    legal_person_city:       kero_varos ?? \"\",\n    legal_person_address:    typeof kero_cim === 'string'\n                              ? kero_cim.trim()\n                              : kero_cim,\n    // bank account\n    bank_account_number:     szamlaszam,\n    bank_account_sort_code:  bic ?? \"\",   // default empty if missing\n    bank_account_currency:  currency\n\n  }));\n\n/**\n * Remap an array of source objects into the target schema,\n * including legal person fields.\n *\n * @param {Array<Object>} data\n * @returns {Array<Object>}\n */\nconst remapDeductions = (data) => {\n  if (!Array.isArray(data)) return [];\n\n  return data.map(({\n    sablon_szam,\n    megnevezes,\n    szamlaszam,\n    bic,\n    jutalek_alap,\n    jogosult,\n    osszeg,\n    kero_kod\n  }, index) => ({\n    // original mappings\n    type_code:            sablon_szam,\n    order:                (index + 1) * 100, // 100, 200, 300, ...\n    type_name:            typeof megnevezes === 'string' ? megnevezes.trim() : megnevezes,\n    bank_account_number:  szamlaszam,\n    bank_account_sort_code: bic ?? \"\",\n    is_deduction_base:    jutalek_alap,\n    group_code:           jogosult,\n    amount:               osszeg,\n    // new legal_person mappings\n    legal_person_code:    normalizePersonCode(kero_kod, szamlaszam)\n  }));\n};\n\nfunction restructureData(source) {\n  return {\n    external_id: source.ugy_szam,\n    resolution: source.hatarozat_szam,\n    period_start: source.datum,\n    period_end: source.lejarat_datum,\n    amount: source.teljes_osszeg,\n    amount_currency: source.penznem,\n    worker: {\n      name: source.dolgozo_nev,\n      uid: source.azonosito\n    },\n    type: source.type,\n    alg: source.alg,\n    params: source.parameterek,\n    first_months: source.levonas_kezdete,\n    months: source.levonas_honapok,\n    deductions: remapDeductions(source.items),\n    legalPersonList: dedupeByCodeAndAccount(remapLegalPerson(source.items, source.penznem))\n  };\n}\n\n/**\n * Extracts all unique, trimmed legal_person_code values\n * @param {Array<Object>} deductions\n * @returns {string[]} unique, trimmed codes\n */\nfunction getUniqueLegalPersonCodes(deductions) {\n  if (!Array.isArray(deductions)) {\n    return [];\n  }\n  return Array.from(\n    new Set(\n      deductions\n        .map(d => String(d.legal_person_code).trim())\n        .filter(code => code.length > 0)\n    )\n  );\n}\n\n/**\n * Turn an array of codes into a single string like: \\\"ALGI\\\",\\\"064\\\",\\\"MKK\\\"\n * If input is null/not an array or empty, returns ''.\n *\n * @param {any} arr\n * @returns {string}\n */\nfunction createEscapedQuotedList(arr) {\n  if (!Array.isArray(arr) || arr.length === 0) {\n    return '';\n  }\n\n  return arr\n    .map(code => {\n      // Coerce to string, escape any internal quotes just in case:\n      const s = String(code).replace(/\"/g, '\\\\\"');\n      return `\"${s}\"`;\n    })\n    .join(',');\n}\n\nconst data = $input.item.json;\nconst deduction = restructureData(data);\nconst codes = getUniqueLegalPersonCodes(deduction.deductions);\nconst codeStr = createEscapedQuotedList(codes);\n\nreturn {\n  workerDeduction: deduction,\n  legalPersonSearch: codeStr\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -260
+      ],
+      "id": "1f637a8e-43e8-406f-9261-648ca3394d5c",
+      "name": "WorkerDeduction"
+    }
+  ],
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Normalize XLS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove invalid entries": {
+      "main": [
+        [
+          {
+            "node": "WorkerDeduction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create commands": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send commands to API": {
+      "main": [
+        [
+          {
+            "node": "Convert response to string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send commands to API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set empty response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert response to string": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set empty response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Load Deduction",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "UpsertedWorkerDeduction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize XLS": {
+      "main": [
+        [
+          {
+            "node": "Group Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Deduction": {
+      "main": [
+        [
+          {
+            "node": "LoadedWorkerDeduction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoadedWorkerDeduction": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group Items": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Create commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertedWorkerDeduction": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "WorkerDeduction": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "073ce57b-16bd-4854-b0f7-156d04a8f674",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-07-21T04:56:29.969Z",
+      "updatedAt": "2025-07-21T04:56:29.969Z",
+      "role": "workflow:owner",
+      "workflowId": "wCASOPZeFjWjFizc",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

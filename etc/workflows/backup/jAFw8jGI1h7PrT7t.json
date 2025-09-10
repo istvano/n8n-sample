@@ -1,0 +1,596 @@
+{
+  "createdAt": "2025-01-23T17:58:20.433Z",
+  "updatedAt": "2025-02-03T14:42:15.137Z",
+  "id": "jAFw8jGI1h7PrT7t",
+  "name": "A1 FTP",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "BRBuCszQInz9hYba",
+          "mode": "list",
+          "cachedResultName": "Process A1"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        240
+      ],
+      "id": "a1df3232-5a55-4cb7-9995-052d7537abfb",
+      "name": "Execute Workflow"
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "path": "=/a1/processing/{{ $json.name }}",
+        "binaryPropertyName": "File"
+      },
+      "id": "6876dd9c-3028-487a-8481-a6b05e1eabd7",
+      "name": "FTP Download file",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        240
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "list",
+        "path": "/a1/to process"
+      },
+      "id": "df3e6832-d411-419b-881f-c4906ddaa696",
+      "name": "FTP List files on ftp",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        640
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "limit",
+        "maxItems": 50
+      },
+      "id": "c3bb8835-d720-4304-8711-5c59870a96a2",
+      "name": "Pick file",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 2.1,
+      "position": [
+        -1280,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.name }}",
+              "operation": "endsWith",
+              "value2": "pdf"
+            }
+          ]
+        }
+      },
+      "id": "dd22945b-6a9e-4554-be86-782c685fd311",
+      "name": "Filter only PDFs",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 1,
+      "position": [
+        -1540,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const dateObj = new Date();\n  \n  const year = dateObj.getFullYear();\n  const month = String(dateObj.getMonth() + 1).padStart(2, '0');\n  const day = String(dateObj.getDate()).padStart(2, '0');\n  \n  const hours = String(dateObj.getHours()).padStart(2, '0');\n  const minutes = String(dateObj.getMinutes()).padStart(2, '0');\n  const seconds = String(dateObj.getSeconds()).padStart(2, '0');\n\n  const folder = `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;\n  \n  // Attach folderName to item’s JSON\n  item.json.folder = folder;\n  return item;\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1980,
+        640
+      ],
+      "id": "58ba764e-3664-4c76-abec-d68871b1c09a",
+      "name": "Date creation"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "path": "=a1/csv",
+        "options": {
+          "fileName": "={{ $('Date creation').item.json.folder }}_{{ $binary.data.fileName }}"
+        }
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        320,
+        640
+      ],
+      "id": "05865c4e-5a26-4c3c-aada-394f2783ae60",
+      "name": "Upload file via SSH",
+      "credentials": {
+        "sshPassword": {
+          "id": "eoOYUfiDJDXPvU27",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "rename",
+        "oldPath": "=a1/csv/{{ $('Date creation').item.json.folder }}_{{ $('Convert to CSV').item.binary.data.fileName}}",
+        "newPath": "=/a1/csv/{{ $('Date creation').item.json.folder }}/{{ $('Convert to CSV').item.binary.data.fileName}}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        320,
+        900
+      ],
+      "id": "016b9c31-baf8-40fc-9b6e-9148d6e61890",
+      "name": "Move file to folder",
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -980,
+        640
+      ],
+      "id": "c817cfa1-5301-497f-abf0-7c6bd0591965",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "rename",
+        "oldPath": "={{ $json.path }}",
+        "newPath": "=/a1/processing/{{ $json.name }}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "id": "1d4e2afe-813e-49e2-86f2-332df4042d28",
+      "name": "FTP Move file to Processing",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        880
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "protocol": "sftp",
+        "operation": "rename",
+        "oldPath": "=/a1/processing/{{ $('Merge').item.json.name }}",
+        "newPath": "=/a1/done/{{ $('Merge').item.json.name }}",
+        "options": {
+          "createDirectories": true
+        }
+      },
+      "id": "df82fafb-751c-4082-9094-d49a4518fff0",
+      "name": "FTP Move file to Done",
+      "type": "n8n-nodes-base.ftp",
+      "typeVersion": 1,
+      "position": [
+        320,
+        1120
+      ],
+      "credentials": {
+        "sftp": {
+          "id": "8w2Qr9qTiy7DwIn6",
+          "name": "SFTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -540,
+        640
+      ],
+      "id": "52cc210c-d22e-4995-b402-229df33289dc",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Add a new field called 'myNewField' to the JSON of the item\n\nreturn {\n  \"id\": 1,\n  \"name\": \"John\"\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "57d1b2dc-ff56-4285-a531-8adc2caa32b0",
+      "name": "Code",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        880,
+        1100
+      ],
+      "id": "a11c58ce-d49d-4748-a590-fea68b78dd85",
+      "name": "Merge upload and csv"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az A1(k) feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "126bb3e8-5676-4895-b82b-a1913c20db9e",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -580,
+        400
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=Processed_A1_{{ $('Date creation').item.json.folder }}.csv"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -800,
+        400
+      ],
+      "id": "1cf51586-66da-4322-ab76-4de2f279ca14",
+      "name": "Convert to XLS"
+    },
+    {
+      "parameters": {
+        "options": {
+          "fileName": "={{ $('FTP Download file').item.json.name }}.csv"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        260,
+        240
+      ],
+      "id": "8f9b9c8b-3f99-433a-be5a-977bd9758d75",
+      "name": "Convert to CSV"
+    },
+    {
+      "parameters": {
+        "formTitle": "A1 FTP Feldolgozás",
+        "formDescription": "Az FTP szerverre feltöltött 'to_process' könyvtárban található fájlok feldolgozása",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Indítás",
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Az FTP szerverre feltöltött 'to_process' könyvtárban található fájlok feldolgozása elindul. Az eredményt e-mailben fogjuk elküldeni."
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -2180,
+        640
+      ],
+      "id": "fdabcae8-6d64-4b72-9231-fe05de291222",
+      "name": "Form",
+      "webhookId": "bda93c3c-fbc7-4d4a-8b28-8dbcda79461f"
+    }
+  ],
+  "connections": {
+    "Execute Workflow": {
+      "main": [
+        [
+          {
+            "node": "Convert to CSV",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge upload and csv",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP Download file": {
+      "main": [
+        [
+          {
+            "node": "Execute Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP List files on ftp": {
+      "main": [
+        [
+          {
+            "node": "Filter only PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick file": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter only PDFs": {
+      "main": [
+        [
+          {
+            "node": "Pick file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date creation": {
+      "main": [
+        [
+          {
+            "node": "FTP List files on ftp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file via SSH": {
+      "main": [
+        [
+          {
+            "node": "Move file to folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move file to folder": {
+      "main": [
+        [
+          {
+            "node": "FTP Move file to Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to XLS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "FTP Move file to Processing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FTP Move file to Processing": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "FTP Move file to Done": {
+      "main": [
+        [
+          {
+            "node": "Merge upload and csv",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "FTP Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge upload and csv": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to XLS": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to CSV": {
+      "main": [
+        [
+          {
+            "node": "Upload file via SSH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Date creation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "78fae45f-fd15-4a96-b469-81b575cd7f3b",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "jAFw8jGI1h7PrT7t",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

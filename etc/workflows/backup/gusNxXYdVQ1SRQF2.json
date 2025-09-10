@@ -1,0 +1,1017 @@
+{
+  "createdAt": "2025-06-17T02:51:24.586Z",
+  "updatedAt": "2025-07-04T04:54:37.376Z",
+  "id": "gusNxXYdVQ1SRQF2",
+  "name": "Import Deductions",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "File",
+        "options": {
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        180
+      ],
+      "id": "6cfd3ee7-1714-4f01-90ed-d0e3a21b954b",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1a1b65a-0f17-4af4-a6ba-ffd34b643618",
+              "leftValue": "={{ $json.dolgozo_egyedi_azonositoja }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "3ff997b1-71a4-45b0-b832-869e0adf47d2",
+              "leftValue": "={{ $json.dolgozo_egyedi_azonositoja }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        -220,
+        40
+      ],
+      "id": "c5f2bf25-35c3-4ef3-a096-07b627019da9",
+      "name": "Remove invalid entries"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        -260
+      ],
+      "id": "8f87069b-8464-42ef-b63d-ff0ab446b134",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { nanoid } = require('nanoid');\n\nfunction formatDate(isoString) {\n\tconst date = new Date(isoString);\n\tconst yyyy = date.getFullYear();\n\tconst mm = String(date.getMonth() + 1).padStart(2, '0');\n\tconst dd = String(date.getDate()).padStart(2, '0');\n\treturn `${yyyy}.${mm}.${dd}`;\n}\n\n/**\n * Generates a command object based on the existingDeduction and upsertedWorkerDeduction inputs.\n *\n**/\nfunction generateCommands(existingWorker, existingDeduction, upsertedWorkerDeduction) {\n  if (!existingWorker) {\n    throw new Error(\"Worker not found\");\n  }\n  // Validate input existence\n  if (!upsertedWorkerDeduction) {\n    throw new Error(\"No deduction to import.\");\n  }\n  // Validate existing deduction\n  var id = nanoid();\n  var commandType = \"workerAdvancement/CREATE\";\n  if (existingDeduction && existingDeduction.id) {\n    id = existingDeduction.id;\n    commandType = \"workerAdvancement/UPDATE\";\n  }\n  \n  const command =  {\n\t\t\ttype: commandType,\n\t\t\tvalue: {\n                id: id,\n\t\t\t\tuid: upsertedWorkerDeduction.worker.uid,\n                identifier: String(upsertedWorkerDeduction.external_id),\n\t\t\t\tadvancement: {\n\t\t\t\t\tissued: formatDate(upsertedWorkerDeduction.created),\n\t\t\t\t\tparty: String(upsertedWorkerDeduction.deduction.party),\n\t\t\t\t\tamount: upsertedWorkerDeduction.deduction.amount,\n\t\t\t\t\tcurrency: String(upsertedWorkerDeduction.deduction.currency),\n\t\t\t\t\tnr_of_months: parseInt(upsertedWorkerDeduction.deduction.nr_of_months, 10),\n\t\t\t\t\tportions: upsertedWorkerDeduction.deduction.amounts,\n\t\t\t\t\tstart: formatDate(upsertedWorkerDeduction.deduction.first_month)\n\t\t\t\t}\n\t\t\t}\n\t\t};\n  \n  return command;\n}\n\nconst existingWorker = $json.existingWorker;\nconst existingDeduction = $json.existingWorkerDeduction;\nconst upsertedWorkerDeduction = $json.upsertedWorkerDeduction;\n\ntry {\n  const allCommands = generateCommands(existingWorker, existingDeduction, upsertedWorkerDeduction);  \n  return {\n      commands: [allCommands]\n  };\n} catch (err) {\n  return {\n      commands: [],\n      error: err.message\n  };\n}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        80
+      ],
+      "id": "5749a9f1-3b2d-4486-ba17-c4546d0990b9",
+      "name": "Create commands"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['BER_API_ENDPOINT'] }}/commandbus/dispatch",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env['BER_API_AUTH_TOKEN']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=[\n  {\n    \"commands\": {{ JSON.stringify($json.commands) }}\n  }\n]\n",
+        "options": {}
+      },
+      "id": "fb61a4bc-fb0c-48ec-8d68-49e66f64f315",
+      "name": "Send commands to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1520,
+        80
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "abc90ecf-8d35-4167-871c-fee991880ace",
+              "leftValue": "={{ $json.commands }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        280
+      ],
+      "id": "64231c7c-f6f0-4ea8-b1b1-51eb91a8cc5f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\n\n/**\n * Maps an array of CommandStatus objects to a list of strings according to these rules:\n * 1) If success and isValid are both true => \"type: ok\"\n * 2) If isValid is false => log validationErrors, return \"type: errors\"\n * 3) If success is false => log executionError, return \"type: errors\"\n * 4) Otherwise => \"type: unknown state\"\n */\nfunction mapCommandStatuses(commands) {\n  return commands.map(command => {\n    // 1) If both success and isValid are true => \"type: ok\"\n    if (command.success && command.isValid) {\n      return `${command.type}: ok`;\n    }\n\n    // 2) If isValid is false => list validationErrors, return \"type: errors\"\n    if (!command.isValid) {\n      const errors = command.validationErrors || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 3) If success is false => list executionError, return \"type: errors\"\n    if (!command.success) {\n      const errors = command.executionError || [];\n      return `${command.type}: ${JSON.stringify(errors)}`;\n    }\n\n    // 4) Fallback (unexpected state)\n    return `${command.type}: unknown state`;\n  });\n}\n\nconst results = mapCommandStatuses(data);\n\nreturn {\n  'response': results ? results.join(', '): 'empty'\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        160
+      ],
+      "id": "b5352868-b9a0-4aa4-9435-0fd2ff6fe87d",
+      "name": "Convert response to string"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "if ($json.error) {\n  return {\n    'response': $json.error\n  }\n} else {\n  return {\n    'response': 'no change'\n  }  \n}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1720,
+        480
+      ],
+      "id": "0bfe8ef1-8c08-45e6-90ee-5288abd40185",
+      "name": "Set empty response"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=processed_{{ $('Form').item.json['File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        820,
+        -400
+      ],
+      "id": "be160975-2dda-4d1a-bbb3-700cb31c45ae",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@hr-group.hu",
+        "toEmail": "={{ $('Form').item.json['Email'] }}",
+        "subject": "Az Dolgozok feltoltes feldolgozasa elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "7955e184-ce02-441f-871e-a7f9a92930de",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1240,
+        -400
+      ],
+      "webhookId": "8b148c9e-2791-4abf-8390-113575144b9d",
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Jogi személyek importálása",
+        "formDescription": "Ez az űrlap lehetőséget biztosít levonasok adatinak importálására. Kérjük, töltsd fel az xlsx kiterjesztésű fájlt, amely a levonasok adatait tartalmazza, a Fájl mezőbe, majd add meg azt az email címet, amelyre a rendszer az importálás eredményét elküldi.\n\nAz importálási folyamat a következő lépéseket tartalmazza:\n\nFájl feltöltése: Az xlsx formátumú fájlban található levonasok alapján történik az importálás.\n\nEredmény email: Az importálás befejezése után a rendszer automatikusan küld egy emailt a megadott címre, amely tartalmazza az importálási folyamat eredményét és esetleges hibajelentéseket.\n\nKérjük, győződj meg róla, hogy a feltöltött fájl helyes formátumban van, és a megadott email cím érvényes!",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "*.xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "A File feldolgozása megkezdödött"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -920,
+        40
+      ],
+      "id": "77bbca10-df8a-4c2d-8dc9-153a19ca2dd1",
+      "name": "Form",
+      "webhookId": "3bc95d72-e670-461d-9d24-988a27e4d87c",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        820,
+        280
+      ],
+      "id": "da0bf5ec-c44b-4afd-8a1b-b672235d7601",
+      "name": "Merge New with Existing"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        60,
+        40
+      ],
+      "id": "ecb3a168-6c87-4a45-89e8-c1399e027975",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        980
+      ],
+      "id": "4321ad5e-2a48-446a-9e39-813e0367c128",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function restructureData(source) {\n  return {\n    external_id: source.issue_key,\n    created: source.letrehozva,\n    modified: source.frissitve,      \n    worker: {\n      name: source.dolgozo_neve,\n      uid: source.dolgozo_egyedi_azonositoja\n    },\n    deduction: {\n      amount: source.munkabereloleg_osszege,\n      currency: source.penznem || 'EUR',\n      party: source.ceg || '',\n      nr_of_months: source.levonasi_honapok_szama,\n      amounts: source.levonasi_honapok,\n      first_month: source.levonas_elso_honapja\n    }\n  };\n}\n\nconst data = $input.item.json;\n\n\nreturn {\n  upsertedWorkerDeduction: restructureData(data)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        520
+      ],
+      "id": "4e1baf56-abaa-44b2-a03a-a385af9ff910",
+      "name": "UpsertedWorkerBreak"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const dateFields = [\"form_last_updated\", \"letrehozva\", \"frissitve\"];\n\nfunction parseYearMonthDotString(value) {\n\tif (typeof value !== 'string') return null;\n\n\tconst match = value.match(/^(\\d{4})\\.(\\d{2})$/);\n\tif (!match) return null;\n\n\tconst year = parseInt(match[1], 10);\n\tconst month = parseInt(match[2], 10) - 1;\n\n\treturn new Date(Date.UTC(year, month, 1)).toISOString();\n}\n\nfunction extractDeductionMonthsValuesOrdered(obj) {\n\treturn Object.entries(obj)\n\t\t.filter(([key, _]) => /^\\d+_honap$/.test(key))\n\t\t.map(([key, value]) => [parseInt(key.split('_')[0], 10), value])\n\t\t.sort((a, b) => a[0] - b[0])\n\t\t.map(([_, value]) => value);\n}\n\nfunction normalizeFieldName(fieldName) {\n\treturn fieldName\n\t\t.normalize('NFD')                      // Decompose accented characters\n\t\t.replace(/[\\u0300-\\u036f]/g, '')       // Remove accents/diacritics\n\t\t.trim()\n\t\t.toLowerCase()\n\t\t.replace(/\\s+/g, '_')                  // Replace whitespace with underscore\n\t\t.replace(/[^a-z0-9_]/g, '_')           // Replace all except lowercase letters, numbers, and _\n\t\t.replace(/_+/g, '_');                  // Collapse multiple underscores\n}\n\nfunction excelDateToJSDate(serial) {\n\tconst msPerDay = 24 * 60 * 60 * 1000;\n\tconst excelEpoch = new Date(Date.UTC(1899, 11, 30));\n\treturn new Date(excelEpoch.getTime() + serial * msPerDay);\n}\n\nconst item = $input.item;\n\n// Process each item\nconst newItem = {};\nfor (const key in item.json) {\n    const cleanKey = normalizeFieldName(key);\n    newItem[cleanKey] = item.json[key];\n}\n\nfor (const field of dateFields) {\n\tconst value = newItem[field];\n\tif (\n\t\tvalue !== undefined &&\n\t\tvalue !== null &&\n\t\tvalue !== '' &&\n\t\t!isNaN(value)\n\t) {\n\t\tconst numeric = parseFloat(value);\n\t\tif (numeric > 20000 && numeric < 60000) {\n\t\t\tnewItem[field] = excelDateToJSDate(numeric).toISOString();\n\t\t}\n\t}\n}\n\n//fix the issue with the first month missing\nif (!newItem['1_honap']) {\n  newItem['1_honap'] = newItem.munkabereloleg_osszege\n}\n\nnewItem['levonasi_honapok'] = extractDeductionMonthsValuesOrdered(newItem);\n\nconst val = newItem.levonas_elso_honapja;\nconst parsed = parseYearMonthDotString(val);\nif (parsed) {\n\tnewItem.levonas_elso_honapja = parsed;\n}\n\n\nreturn newItem;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        180
+      ],
+      "id": "9a0fdf12-8afe-409f-ba2d-37c2fa7e6efd",
+      "name": "Normalize XLS"
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "endpoint": "={{$env['BER_GRAPHQL_ENDPOINT']}}",
+        "query": "query getWorkerDeduction($limit: Int, $offset: Int, $workerWhere: worker_bool_exp, $deductionWhere: worker_deduction_bool_exp) {\n  worker(limit: $limit, offset: $offset, where: $workerWhere) {\n    id\n    first_name\n    last_name\n    uid\n    title\n  }\n  worker_deduction(limit: $limit, offset: $offset,where: $deductionWhere) {\n    id\n    algorithm_name\n    algorithm_params\n    amount_currency\n    archived\n    external_identifier\n    period_start\n    period_end\n    category\n    status\n    resolution\n  }\n}",
+        "variables": "={\n  \"limit\": 1,\n  \"offset\": 0,\n  \"workerWhere\": {\n   \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"uid\": {\n          \"_like\": \"{{ $json.dolgozo_egyedi_azonositoja }}\"\n        }\n      }\n    ]\n\t},\n  \"deductionWhere\": {\n    \"_and\": [\n      {\n        \"archived\": {\n          \"_eq\": \"ACTIVE\"\n        }\n      },\n      {\n        \"external_identifier\": {\n          \"_ilike\": \"{{ $json.issue_key }}\"\n        }\n      }\n    ]    \n  }\n}"
+      },
+      "type": "n8n-nodes-base.graphql",
+      "typeVersion": 1.1,
+      "position": [
+        540,
+        -40
+      ],
+      "id": "7b0990e3-eb7a-42ce-b7e1-e5ef85a5778c",
+      "name": "Load Deduction",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Y4AtWUgOfsqxWN4R",
+          "name": "Hasura Admin Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Normalizes the input to return a single object.\n *\n * - If input is null, returns an empty object.\n * - If input is an array:\n *    - Returns the first element if the array is not empty.\n *    - Returns an empty object if the array is empty.\n * - If input is a single object, returns the object.\n *\n * @param {Object | Object[] | null} input - The input value to normalize.\n * @returns {Object} - A normalized object.\n */\nfunction normalizeInput(input) {\n  // Check if the input is null.\n  if (input === null) {\n    return {};\n  }\n  \n  // Check if the input is an array.\n  if (Array.isArray(input)) {\n    // Return the first element if available, otherwise an empty object.\n    return input.length ? input[0] : {};\n  }\n  \n  // If it's a single object, return it as is.\n  if (typeof input === 'object') {\n    return input;\n  }\n  \n  // Fallback: in unexpected cases, return an empty object.\n  return {};\n}\n\nfunction reformatDates(data) {\n\n  const reformatDate = (dateStr) => dateStr ? dateStr.replace(/-/g, '.') : dateStr;\n\n  if (data && data.id ) {\n      return {\n        ...data,\n          period_start: reformatDate(data.period_start),\n          period_end: reformatDate(data.period_end),\n      };\n  } else {\n    return data;\n  }\n  \n}\n\nconst worker = normalizeInput($input.item.json.data?.worker || {});\nconst deduction = normalizeInput($input.item.json.data?.worker_deduction || {});\n\nreturn {\n  existingWorker: worker,\n  existingWorkerDeduction:  reformatDates(deduction)\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        -40
+      ],
+      "id": "c4553f3d-c629-4fc4-b376-654abd054a54",
+      "name": "LoadedWorkerDeduction"
+    }
+  ],
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Normalize XLS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove invalid entries": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create commands": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send commands to API": {
+      "main": [
+        [
+          {
+            "node": "Convert response to string",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send commands to API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set empty response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert response to string": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set empty response": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge New with Existing": {
+      "main": [
+        [
+          {
+            "node": "Create commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UpsertedWorkerBreak",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Load Deduction",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UpsertedWorkerBreak": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Normalize XLS": {
+      "main": [
+        [
+          {
+            "node": "Remove invalid entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Deduction": {
+      "main": [
+        [
+          {
+            "node": "LoadedWorkerDeduction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoadedWorkerDeduction": {
+      "main": [
+        [
+          {
+            "node": "Merge New with Existing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "Remove invalid entries": [
+      {
+        "json": {
+          "issue_id": 59323,
+          "issue_key": "KMU-43960",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-15T13:26:59.572Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Gavrilete Márk - 8469383450",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Vernóth Csilla",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-15T13:27:00.768Z",
+          "frissitve": "2025-05-19T16:19:32.321Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 2,
+          "dolgozo_neve": "Gavrilete Márk",
+          "dolgozo_egyedi_azonositoja": "8408182722",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "Herrmann CNC-Drehtechnik GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 500,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "4",
+          "1_honap": 200,
+          "2_honap": 150,
+          "3_honap": 50,
+          "4_honap": 100,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            200,
+            150,
+            50,
+            100
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59493,
+          "issue_key": "KMU-44007",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-16T11:25:34.740Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Horváth Gábor - 8389420317",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Bakos-Kun Renáta",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-16T11:25:35.650Z",
+          "frissitve": "2025-05-19T10:50:24.305Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 6,
+          "dolgozo_neve": "Horváth Gábor",
+          "dolgozo_egyedi_azonositoja": "8448260758",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "Verzinkerei Sahm GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 100,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "1_honap": 100,
+          "levonas_elso_honapja": "2025-04-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            100
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59665,
+          "issue_key": "KMU-44045",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-19T08:52:26.283Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Komonyi Tamás - 8444924261",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Brambauer Zsolt",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-19T08:52:27.512Z",
+          "frissitve": "2025-05-20T08:48:57.245Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 2,
+          "eloleg_targyevben_db": 3,
+          "dolgozo_neve": "Komonyi Tamás",
+          "dolgozo_egyedi_azonositoja": "8444924261",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "TKT GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 1000,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "2",
+          "1_honap": 500,
+          "2_honap": 500,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "megjegyzes": "Van 1000 EUR nyitott előlege, a plusz 1000 házépítésre kell neki, a májusi fizetése biztosít mindkettő visszavonására fedezetet, a Norbi előzetesen jóváhagyta, erről e-mail itt:\n\n-----Original Message-----\nFrom: Szugfil Norbert <norbert.szugfil@hr-group.hu> \nSent: Thursday, May 15, 2025 4:55 PM\nTo: Brambauer Zsolt <zsolt.brambauer@hr-group.hu>\nSubject: RE: Előleg - Komonyi Tamás - TKT\n \nok, de ne csináljunk rendszert ezekből mert minden ilyet meg kell magyaráznom egyszer...\nköszi\n \nMit freundlichen Grüßen,\n \nNorbert Szugfil\nHead of Partnerships and Sales\n \n+36 70 371 7681\n+49 159 0656 7557\n \nnorbert.szugfil@hr-group.hu\n \n \n \n-----Original Message-----\nFrom: Brambauer Zsolt <zsolt.brambauer@hr-group.hu>\nSent: Thursday, May 15, 2025 8:35 AM\nTo: Szugfil Norbert <norbert.szugfil@hr-group.hu>\nCc: Májlinger Tamás <tamas.majlinger@hr-group.hu>; Lendvay Lajos <lajos.lendvay@hr-group.hu>; Mészáros-Vlahovics Zsófia <zsofia.vlahovics@hr-group.hu>\nSubject: FW: Előleg - Komonyi Tamás - TKT\n \nSzia Norbi,\n \nvan egy 1000 EUR-s nyitott előlege, de ettől függetlenül adhatunk neki jóváhagyásod mellett.\n \nA Tomi javaslatára a júniusi fizetéséből kellene visszavonni adózási okok miatt, írunk kölcsönszerződést is, a májusi bére fedezi a 2000 EUR-t, nagy kockázat nincs benne.\n \nKérlek jelezd, ha OK, keddi utalással tervezzük. Beteszem a válasz e-mailedet a Jirába, így pluszban engedélyezned sem kell már.\n \nKöszönöm,\nZsolt\n \n-----Original Message-----\nFrom: Tamás Komonyi <komtom1025@gmail.com>\nSent: Wednesday, May 14, 2025 4:52 PM\nTo: Brambauer Zsolt <zsolt.brambauer@hr-group.hu>\nSubject: Eloleg\n \nSzia Zsolt! Köszönöm az előleget! Viszont lenne egy kérésem. Varatlan , rejtett hiba lepett fel a ház felújításánál. Amit sürgősen orvosolni kell. Ezért szukségem lenne meg 1000€ ra. Tudom hogy 1000€ a megengedett de nagyon hálás lennek ha egyszer tudnál kivételt tenni. Termeszetesen a kovetkezo fizetesembol egyben viszavonod. Ami kb 3000€ kornyeke lesz. Előre is köszönöm!\nUdv:Tamás",
+          "levonasi_honapok": [
+            500,
+            500
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59748,
+          "issue_key": "KMU-44049",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-19T09:46:47.337Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Mitrovics László - 8456923451",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Papp Gergő",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-19T09:46:48.318Z",
+          "frissitve": "2025-05-19T10:50:28.950Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 1,
+          "dolgozo_neve": "Mitrovics László",
+          "dolgozo_egyedi_azonositoja": "8408182721",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "AUT",
+          "kolcsonbe_vevo_foglalkoztato": "WIEGEL Feldkirch Feuerverzinken GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 300,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "1_honap": 300,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            300
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59749,
+          "issue_key": "KMU-44050",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-19T09:50:39.882Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Báder Roland - 8456092924",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Lendvay Lajos",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-19T09:50:40.884Z",
+          "frissitve": "2025-05-19T10:50:32.490Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 2,
+          "eloleg_targyevben_db": 2,
+          "dolgozo_neve": "Báder Roland",
+          "dolgozo_egyedi_azonositoja": "8456092924",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "Getränke Gefromm GmbH & Co. KG",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 300,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "1_honap": 300,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            300
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59750,
+          "issue_key": "KMU-44051",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-19T09:53:12.682Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Varga Tünde - 8451873219",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Hoffmann Zita",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-19T09:53:13.704Z",
+          "frissitve": "2025-05-19T10:50:33.867Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 3,
+          "dolgozo_neve": "Varga Tünde",
+          "dolgozo_egyedi_azonositoja": "8465430586",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "Gebr. Binder GmbH Metallwarenfabrik",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 5000,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "5",
+          "1_honap": 1000,
+          "2_honap": 800,
+          "3_honap": 0,
+          "4_honap": 750,
+          "5_honap": 1000,
+          "6_honap": 1450,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            1000,
+            800,
+            0,
+            750,
+            1000,
+            1450
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59791,
+          "issue_key": "EXT-ADV-001",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-19T12:59:19.816Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Nagy Tamás - 467131829",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Hoffmann Zita",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-19T12:59:20.696Z",
+          "frissitve": "2025-05-19T14:05:53.367Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 1,
+          "dolgozo_neve": "Nagy Tamás",
+          "dolgozo_egyedi_azonositoja": "8486330211",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "Gebr. Binder GmbH Metallwarenfabrik",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 500,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "1_honap": 500,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            500
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59793,
+          "issue_key": "KMU-44070",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-19T14:02:05.604Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Lázár Olivér - 8463931561",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Vernóth Csilla",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-19T14:02:06.540Z",
+          "frissitve": "2025-05-19T14:05:54.082Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 3,
+          "dolgozo_neve": "Lázár Olivér",
+          "dolgozo_egyedi_azonositoja": "8463931561",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "AUT",
+          "kolcsonbe_vevo_foglalkoztato": "BG Graspointner GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 500,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": []
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59816,
+          "issue_key": "KMU-44080",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-20T08:27:37.275Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Lerchner Márk Péter - 8472772403",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Papp Gergő",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-20T08:27:38.434Z",
+          "frissitve": "2025-05-20T08:48:30.091Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 3,
+          "dolgozo_neve": "Lerchner Márk Péter",
+          "dolgozo_egyedi_azonositoja": "8421331426",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "VEIT GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 500,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "1_honap": 500,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            500
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59817,
+          "issue_key": "KMU-44081",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-20T08:28:47.047Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Ács István József - 8408182722",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Papp Gergő",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-20T08:28:47.992Z",
+          "frissitve": "2025-05-20T08:48:31.714Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 3,
+          "dolgozo_neve": "Ács István József",
+          "dolgozo_egyedi_azonositoja": "8421331421",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "ALGI Alfred Giehl GmbH & Co. KG",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 350,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "1_honap": 350,
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            350
+          ]
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59818,
+          "issue_key": "KMU-44082",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-20T09:30:38.852Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Bálint János - 8407123846",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Vernóth Csilla",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-20T09:30:39.874Z",
+          "frissitve": "2025-05-20T12:30:47.763Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 4,
+          "dolgozo_neve": "Bálint János",
+          "dolgozo_egyedi_azonositoja": "8421331425",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "ZFE GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 500,
+          "folyositas_datuma": "Kedd",
+          "levonas_elso_honapja": "2025-05-01T00:00:00.000Z",
+          "levonasi_honapok": []
+        }
+      },
+      {
+        "json": {
+          "issue_id": 59819,
+          "issue_key": "KMU-44083",
+          "form_status": "Submitted",
+          "form_last_updated": "2025-05-20T10:23:01.039Z",
+          "feladattipus": "Előleg",
+          "osszefoglalas": "Előleg - Törőcsik László I  - 8434900726",
+          "hozzarendelt_szemely": "Majlinger Tamás",
+          "bejelento": "Galácz Máté",
+          "prioritas": "Medium",
+          "letrehozva": "2025-05-20T10:23:02.104Z",
+          "frissitve": "2025-05-20T12:30:49.433Z",
+          "ceg": "HR",
+          "eloleg_targyhoban_db": 1,
+          "eloleg_targyevben_db": 2,
+          "dolgozo_neve": "Törőcsik László I ",
+          "dolgozo_egyedi_azonositoja": "8434900726",
+          "ceg_1": "HR",
+          "munkavegzes_orszaga": "GER",
+          "kolcsonbe_vevo_foglalkoztato": "ORTWEIN GmbH",
+          "munkabereloleg_tipusa": "Előleg",
+          "munkabereloleg_osszege": 500,
+          "folyositas_datuma": "Kedd",
+          "levonasi_honapok_szama": "1",
+          "1_honap": 500,
+          "levonas_elso_honapja": "2025-06-01T00:00:00.000Z",
+          "levonasi_honapok": [
+            500
+          ]
+        }
+      }
+    ]
+  },
+  "versionId": "423797c4-3ae0-43a4-967f-86b750205f8e",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-06-17T02:51:24.586Z",
+      "updatedAt": "2025-06-17T02:51:24.586Z",
+      "role": "workflow:owner",
+      "workflowId": "gusNxXYdVQ1SRQF2",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

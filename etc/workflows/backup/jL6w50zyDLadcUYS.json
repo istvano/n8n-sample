@@ -1,0 +1,480 @@
+{
+  "createdAt": "2025-01-11T07:48:53.998Z",
+  "updatedAt": "2025-01-15T09:11:01.072Z",
+  "id": "jL6w50zyDLadcUYS",
+  "name": "Calculate Distance",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "binaryPropertyName": "CSV_File",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        280,
+        0
+      ],
+      "id": "48196ea4-06c8-406c-bf3c-735a67bb9205",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function sanitizeKeyName(key) {\n  // Normalize the string to decompose special characters and remove diacritics\n  return key\n    .normalize(\"NFD\") // Decomposes characters, e.g., \"é\" becomes \"é\"\n    .replace(/[\\u0300-\\u036f]/g, \"\") // Removes combining diacritical marks\n    .toLowerCase() // Convert to lowercase\n    .replace(/[^a-z0-9]/g, \"\"); // Remove remaining special characters\n}\n\nfunction sanitizeObjectKeys(obj) {\n  if (Array.isArray(obj)) {\n    // If the object is an array, recursively sanitize its elements\n    return obj.map(sanitizeObjectKeys);\n  } else if (obj !== null && typeof obj === \"object\") {\n    // If the object is an object, recursively sanitize its keys and values\n    return Object.keys(obj).reduce((acc, key) => {\n      const sanitizedKey = sanitizeKeyName(key);\n      acc[sanitizedKey] = sanitizeObjectKeys(obj[key]);\n      return acc;\n    }, {});\n  }\n  // If the object is a primitive value, return it as is\n  return obj;\n}\n\nreturn sanitizeObjectKeys($input.item.json);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ],
+      "id": "cd29bd7a-80bf-4974-a645-83be8845f003",
+      "name": "Normalize Field Names"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        720,
+        0
+      ],
+      "id": "c4caa34b-55f7-413e-9aad-e18a21044ffe",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.tavolsag }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "km_missing"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4674a58b-2218-42d1-bd7a-ae48c9d7ca0f",
+                    "leftValue": null,
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "notEquals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "km_ok"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1160,
+        0
+      ],
+      "id": "3311c15c-ad3a-437f-803b-e5ecc339a9db",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "url": "https://maps.googleapis.com/maps/api/distancematrix/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "origins",
+              "value": "={{ $json.kiindulas }}"
+            },
+            {
+              "name": "destinations",
+              "value": "={{ $json.celallomas }}"
+            },
+            {
+              "name": "units",
+              "value": "metric"
+            },
+            {
+              "name": "mode",
+              "value": "driving"
+            },
+            {
+              "name": "key",
+              "value": "={{$env['GOOGLE_MAPS_API_KEY']}}"
+            },
+            {
+              "name": "language",
+              "value": "hu"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        -300
+      ],
+      "id": "95180aa7-4897-4e4c-9519-494575177856",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {
+          "clashHandling": {
+            "values": {
+              "resolveClash": "preferLast"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2180,
+        -160
+      ],
+      "id": "933ac72f-4797-4ab2-8021-f15648b0bb5e",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  kiindulas_cim: $input.item.json.origin_addresses?.[0]??'Ismeretlen kiindulasi cim',  \n  celallomas_cim: $input.item.json.destination_addresses?.[0]??'Ismeretlen celallomas',\n  tavolsag: $input.item.json.rows?.[0].elements?.[0].distance?.value??0,\n  idotartam: $input.item.json.rows?.[0].elements?.[0].duration?.value??0,\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        -300
+      ],
+      "id": "21f58158-6db6-4744-8bc5-5c896d8f8ee5",
+      "name": "Normalize distance info"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "$input.item.json.tavolsag = $input.item.json.tavolsag || 0;\nreturn $input.item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        0
+      ],
+      "id": "934e7ee9-5cbd-437a-b258-4a6598b46312",
+      "name": "Create distance field"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function createDestinationAddressString(obj) {\n  // Destructure the fields from the destination object\n  const { \n    szekhelyorszag, \n    szekhelyirszam, \n    szekhelytelepules, \n    szekhelyutca, \n    szekhelyhsz \n  } = obj;\n\n  // Construct the address string\n  return `${szekhelyutca} ${szekhelyhsz}, ${szekhelyirszam} ${szekhelytelepules}, ${szekhelyorszag}`;\n  \n}\n  \nfunction createSourceAddressString(obj) {\n  // Destructure the fields from the input object\n  const { iranyitoszam, varos, kozterulet, kozteruletjellege, hazszam } = obj;\n\n  // Construct the address string using template literals\n  return `${varos}, ${kozterulet} ${kozteruletjellege} ${hazszam}, ${iranyitoszam} Magyarország`;\n}\n\n$input.item.json.kiindulas = createSourceAddressString($input.item.json);\n$input.item.json.celallomas = createDestinationAddressString($input.item.json);\n\nreturn $input.item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        -180
+      ],
+      "id": "2f479c8b-d99a-4830-88b9-3f341100f0c1",
+      "name": "Create Source and Target Fields"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "=feldolgozott_{{ $('form').first().json['CSV File'].filename }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2600,
+        0
+      ],
+      "id": "d34d8ac9-d952-423f-88bb-076dd9a1ee85",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2380,
+        0
+      ],
+      "id": "34b554ed-93d9-4509-ba84-1d46bf03f338",
+      "name": "Merge with non filtered"
+    },
+    {
+      "parameters": {
+        "fromEmail": "workflow@n8n.localhost.local",
+        "toEmail": "={{ $('form').first().json.Email }}",
+        "subject": "Tavolsag kalkulacio elkeszult",
+        "emailFormat": "text",
+        "text": "A munkafolyamatod sikeresen feldolgozásra került, kérlek, keresd a csatolt a XLSX fájlt az e-mailben, amely tartalmazza az eredmenyeket.",
+        "options": {
+          "appendAttribution": false,
+          "attachments": "=data"
+        }
+      },
+      "id": "faa0d2e0-5578-46d6-ade5-d7f6f337e107",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2840,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Távolság Kalkulátor",
+        "formDescription": "You will receive an email soon",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "XLXS File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": ".xlsx",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "placeholder": "Emailcim",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e153e9f6-52c6-45c6-8a5d-ca4cc158ef82",
+      "name": "form",
+      "webhookId": "7c15f021-6152-4670-9b70-62a6de8778ef"
+    }
+  ],
+  "connections": {
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Normalize Field Names",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Field Names": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Create distance field",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Create Source and Target Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge with non filtered",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Normalize distance info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize distance info": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Create distance field": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Source and Target Fields": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Merge with non filtered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge with non filtered": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "form": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": {},
+  "versionId": "f5c75194-df3d-43db-b18f-939a9d119035",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "jL6w50zyDLadcUYS",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

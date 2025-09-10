@@ -1,0 +1,91 @@
+{
+  "createdAt": "2024-09-15T07:36:39.002Z",
+  "updatedAt": "2024-09-15T07:43:58.566Z",
+  "id": "FOmjm0RmctLvwKdz",
+  "name": "Error",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e9bd6555-1019-4ac3-92e5-2928cf608852",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        780,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "workflow@n8n.localhost.local",
+        "toEmail": "error@hrrent.hu",
+        "subject": "=🚨 Hiba a workflow-ban: {{ $json.workflow.name }}",
+        "emailFormat": "both",
+        "text": "=⚠️ A(z) {{$json[\"workflow\"][\"name\"]}} munkafolyamat futása sikertelen volt!\nAz alábbi linken találja a végrehajtást: {{ $json.execution.url }}\n\nHibajelentés a(z) {{ $json.execution.lastNodeExecuted }} csomópontból: {{ $json.execution.error.message }}\n\n{{ $json.execution.error.stack }}",
+        "html": "=⚠️ A(z) {{$json[\"workflow\"][\"name\"]}} munkafolyamat futása sikertelen volt!\nAz alábbi linken találja a végrehajtást: {{ $json.execution.url }}\n\nHibajelentés a(z) {{ $json.execution.lastNodeExecuted }} csomópontból: {{ $json.execution.error.message }}\n\n{{ $json.execution.error.stack }}",
+        "options": {}
+      },
+      "id": "6c3aba1e-3647-46ae-a359-61818836be0e",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1000,
+        380
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "nF8jekF8CRIcIClT",
+          "name": "Local SMTP account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "callerPolicy": "any",
+    "errorWorkflow": "FOmjm0RmctLvwKdz"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "84b158c9-0a43-4275-87e3-8fa96ebd4f15",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-04-02T12:39:45.945Z",
+      "updatedAt": "2025-04-02T12:39:45.945Z",
+      "role": "workflow:owner",
+      "workflowId": "FOmjm0RmctLvwKdz",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,966 @@
+{
+  "createdAt": "2025-05-17T12:26:00.457Z",
+  "updatedAt": "2025-09-06T16:23:09.454Z",
+  "id": "I00MCGDyglUVKuco",
+  "name": "Process A1 4.1",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 3. Summarize the information\n\n",
+        "height": 814,
+        "width": 1060,
+        "color": 7
+      },
+      "id": "a4fbfcfe-1031-4176-be23-d864970bfc17",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1584,
+        -288
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "text",
+              "renameField": true,
+              "outputFieldName": "pages"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d40700fc-50e4-45d2-886c-858a35aee897",
+      "name": "Combine All Pages",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [
+        1728,
+        -128
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
+        "options": {
+          "frequencyPenalty": 0,
+          "maxTokens": 8192,
+          "presencePenalty": 0,
+          "temperature": 0,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        112
+      ],
+      "id": "3a0dd76f-1037-4ad5-9bdd-844d343179b1",
+      "name": "Azure OpenAI Chat Model",
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "BHWwkASmhpZnRdOs",
+          "name": "Azure Open AI account for 4.1 nano"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
+        "options": {
+          "frequencyPenalty": 0,
+          "maxTokens": 8192,
+          "presencePenalty": 0,
+          "temperature": 0,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        128
+      ],
+      "id": "4b548968-4e81-4db3-a53c-d3f154a99b0d",
+      "name": "Azure OpenAI Chat Model1",
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "BHWwkASmhpZnRdOs",
+          "name": "Azure Open AI account for 4.1 nano"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 2. Extract Key Data Confidently From the pages\n",
+        "height": 814,
+        "width": 580,
+        "color": 7
+      },
+      "id": "08daa818-5147-4b9c-808b-1bf4c68cf470",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        944,
+        -288
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 1. Turn the pdf into a series of images\n",
+        "height": 814,
+        "width": 1000,
+        "color": 7
+      },
+      "id": "28b20e7b-c699-4d5b-8c3a-f5a08980847e",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -80,
+        -288
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1920,
+        -144
+      ],
+      "id": "7d007d1e-aada-4f3d-b4e7-66ce32151c38",
+      "name": "Workflow Input Trigger"
+    },
+    {
+      "parameters": {
+        "formTitle": "A1 Form Processing",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -1920,
+        144
+      ],
+      "id": "74996b6d-142b-49b3-aedd-30111a533813",
+      "name": "On form submission",
+      "webhookId": "af145095-3f68-4aba-92bd-97fbe4a57c31"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://pdfprocessor:8080/api/v1/general/split-pages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env['PDF_PROCESSOR_API_KEY']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "fileInput",
+              "inputDataFieldName": "File"
+            },
+            {
+              "name": "pageNumbers",
+              "value": "all"
+            },
+            {
+              "name": "dpi",
+              "value": "300"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ac76e013-fb00-479d-bacb-bb2b5542399f",
+      "name": "Split PDF into pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -1360,
+        -48
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {},
+      "id": "99dddb38-f299-40d7-b049-da75e72253d6",
+      "name": "Extract Pages from Zip",
+      "type": "n8n-nodes-base.compression",
+      "position": [
+        -1120,
+        -48
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Removes diacritical marks (accents) from a string.\n * Uses Unicode normalization to decompose accented characters and then removes the diacritic marks.\n *\n * @param {string} str - The string from which to remove diacritics.\n * @returns {string} - The normalized string without diacritical marks.\n */\nfunction removeDiacritics(str) {\n  // Normalize to \"NFD\" (Normalization Form Decomposition) which separates the base character from its accents.\n  // Then, remove the combining diacritical marks (Unicode range \\u0300 - \\u036f).\n  return str.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n}\n\n/**\n * Searches for a search term within a given text, ignoring case and diacritics.\n *\n * @param {string} text - The text in which to search.\n * @param {string} searchTerm - The term to search for.\n * @returns {boolean} - True if the search term is found (ignoring case and diacritics); otherwise, false.\n */\nfunction containsIgnoreDiacritics(text, searchTerm) {\n  // Remove diacritics and convert both text and search term to lower case.\n  const normalizedText = removeDiacritics(text).toLowerCase();\n  const normalizedSearchTerm = removeDiacritics(searchTerm).toLowerCase();\n\n  // Check if the normalized text contains the normalized search term.\n  return normalizedText.includes(normalizedSearchTerm);\n}\n\n// Add a new field called 'myNewField' to the JSON of the item\nconst text = $input.item.json.data;\nconst proof = \"KÁRTYÁT HELYETTESÍTŐ\"\nconst signature = \"ZÁRADÉK\"\n$input.item.json.ignore = containsIgnoreDiacritics(text, proof) || containsIgnoreDiacritics(text, signature);\n\n\nreturn $input.item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        64
+      ],
+      "id": "ee170d51-c951-40f3-8a38-ddd87ca79cd0",
+      "name": "Flag not needed pages"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ea43d8d3-4cfb-4559-aad1-c31bf716b7a7",
+              "leftValue": "={{ $json.ignore }}",
+              "rightValue": "AZ EURÓPAI EGÉSZSÉGBIZTOSÍTÁSI KÁRTYÁT HELYETTESÍTŐ",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        272,
+        352
+      ],
+      "id": "7e3191fb-62a4-4437-9062-f628c27e32cf",
+      "name": "Remove Pages with metadata"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://pdfprocessor:8080/api/v1/convert/pdf/img",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env['PDF_PROCESSOR_API_KEY']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "fileInput",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "imageFormat",
+              "value": "jpeg"
+            },
+            {
+              "name": "singleOrMultiple",
+              "value": "single"
+            },
+            {
+              "name": "pageNumbers",
+              "value": "all"
+            },
+            {
+              "name": "dpi",
+              "value": "300"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c2de0089-972a-4c17-a3c4-e9e5cf85ec57",
+      "name": "Convet PDF to image",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        592,
+        64
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "fileName"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "cf0c8284-8bab-4571-8e9e-010f67c3ef6f",
+      "name": "Sort Pages",
+      "type": "n8n-nodes-base.sort",
+      "position": [
+        -656,
+        -48
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "let results = [];\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                data: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "id": "b461330d-290c-4824-9a54-6178aeedfbcf",
+      "name": "Create Pdf page list",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        -880,
+        -48
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -656,
+        320
+      ],
+      "id": "b54930ba-49cd-4fe5-af7a-3352e4048a09",
+      "name": "Loop Over PDFs"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Transcribe the provided image into markdown.\n\nRULES:\n  - The page contains text and a form. The form has multiple fields. Take extra care to return the field id, the name of the field as well as the value.\n  - Do not return prefixes like \\`\\`\\`markdown or \\`\\`\\`html\n  - You must include all information on the page. \n  - Prefer using ☐ and ☑ for check boxes.",
+        "messages": {
+          "messageValues": [
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary",
+              "imageDetail": "high"
+            }
+          ]
+        }
+      },
+      "id": "99f93611-b1ed-4c9f-a2f3-df37743e8e2a",
+      "name": "OCR PDF Page Image",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "position": [
+        1088,
+        -128
+      ],
+      "typeVersion": 1.4
+    },
+    {
+      "parameters": {
+        "text": "= {{ $json.pages.join('---') }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"array\",\n  \"items\": {\n\t\"type\": \"object\",\n\t\"properties\": {\n      \"identifier\": { \"type\": \"string\" },\n      \"familyName\": { \"type\": \"string\" },\n      \"firstName\": { \"type\": \"string\" },\n      \"birthName\": { \"type\": \"string\" },\n      \"birthDate\": { \"type\": \"string\" },\n      \"NInumber\": { \"type\": \"string\" },\n      \"memberCountry\": { \"type\": \"string\" },\n      \"startDay\": { \"type\": \"string\" },\n      \"lastDay\": { \"type\": \"string\" },\n      \"sendingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyCountry\": { \"type\": \"string\" },\n      \"issueDate\": { \"type\": \"string\" }\n\t}\n  }}",
+        "options": {
+          "systemPromptTemplate": "You are an form field extraction assistant. \nBelow is the markdown from a scanned A1 certificate. \n\nExtract the following field values from the markdown document:\n\nAzonosító as identifier\n1.1 Személyi azonosító szám as NInumber\n1.2 Családi név as familyName\n1.3 Utónév as firstName\n1.4 Születési név as birthName\n1.5 Születési idő as birthDate\n\n2.1 Tagállam as memberCountry\n2.2 Kezdő nap as startDay\n2.3 Utolsó nap as lastDay\n\n4.3 Név vagy cégnév as sendingCompanyName\n5.1 or 5.2 use either field but prefer 5.2. They might contain a long text. Separate the company name and country into employingCompanyName and employingCompanyCountry from this text.\n\n6.10 dátum as issueDate\n\nRules:\n- Do not modify or translate the field value.\n- If you are uncertain about a field’s value, output `null` as the value instead of guessing.\n- Country fields convert the name into its corresponding ISO 3166-1 alpha-3 code (e.g., 'Austria' -> 'AUT', 'Germany' -> 'DEU', 'Hungary' -> 'HUN')."
+        }
+      },
+      "id": "d09778df-a34f-4348-acd3-75ddf5f9e4f0",
+      "name": "Extract All Data into JSON",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "position": [
+        1968,
+        -128
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://pdfprocessor:8080/api/v1/misc/ocr-pdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env['PDF_PROCESSOR_API_KEY']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "fileInput",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "languages",
+              "value": "hun"
+            },
+            {
+              "name": "ocrType",
+              "value": "    force-ocr"
+            },
+            {
+              "name": "ocrRenderType",
+              "value": "hocr"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "82800cf2-257f-49b9-b3b8-8786c324ace4",
+      "name": "Legacy OCR PDF page",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -320,
+        528
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://pdfprocessor:8080/api/v1/convert/pdf/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-KEY",
+              "value": "={{$env['PDF_PROCESSOR_API_KEY']}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "fileInput",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "outputFormat",
+              "value": "txt"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1d7d3f16-ad0a-4d41-9623-3b4b7b9aa765",
+      "name": "Extract Text from OCRed PDF page",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        -320,
+        752
+      ],
+      "typeVersion": 4.2
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        48,
+        64
+      ],
+      "id": "f293398a-d612-4391-a8a9-103cc88a61b9",
+      "name": "Merge OCR text with original Binary"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// This function processes a single page (array) and returns an object\n// with the new text (trimmed from the earliest token occurrence if threshold met)\n// and a boolean indicating whether the threshold was met.\nfunction processPage(text, page) {\n  let count = 0;\n  let earliestIndex = text.length;\n\n  for (const token of page) {\n    const index = text.indexOf(token);\n    if (index !== -1) {\n      count++;\n      if (index < earliestIndex) {\n        earliestIndex = index;\n      }\n    }\n  }\n\n  const thresholdMet = count > (page.length / 2);\n  return {\n    newText: thresholdMet ? text.substring(earliestIndex) : text,\n    thresholdMet: thresholdMet\n  };\n}\n\nfunction processTextWithPages(text, pages) {\n  for (const page of pages) {\n    const result = processPage(text, page);\n    if (result.thresholdMet) {\n      return result;\n    }\n  }\n  return {\n    newText: text,\n    thresholdMet: false\n  };\n}\n\nconst firstPage = [ \"1.1\", \"1.2\", \"1.3\", \"1.4\", \"1.5\", \"1.6\", \"1.7\", \"1.8\", \"1.8.1\", \"1.8.2\",\"1.8.3\",\"1.8.4\",\"1.9\", \"1.9.1\", \"1.9.2\",\"1.9.3\",\"1.9.4\", \"2.1\", \"2.2\", \"2.3\", \"2.4\", \"2.5\", \"2.6\"];\nconst secondPage = [\"3.1\", \"3.2\", \"3.3\", \"3.4\", \"3.5\", \"3.6\", \"3.7\", \"3.8\", \"3.9\", \"3.10\", \"3.11\", \"3.12\", \"4.1.1\", \"4.1.2\",\"4.2\", \"4.3\", \"4.4\", \"4.4.1\", \"4.4.2\", \"4.4.3\", \"4.4.4\", \"5.1\"];\nconst thirdPage = [\"5.2\", \"5.3\", \"6.1\", \"6.2\", \"6.3\", \"6.4\", \"6.5\", \"6.6\", \"6.7\", \"6.8\", \"6.9\", \"6.10\", \"6.11\" ];\n\nconst pages = [firstPage, secondPage, thirdPage];\nconst result = processTextWithPages($input.item.json.data, pages);\n\nreturn {\n  fileName: $input.item.json.fileName,\n  data: result.newText\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        352
+      ],
+      "id": "78b37115-fafd-4366-8429-32963807672f",
+      "name": "Remove Noise"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "data",
+              "renameField": true,
+              "outputFieldName": "pages"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a61d0d6f-aec7-4ef0-beb6-685aba0cddb3",
+      "name": "Combine OCR Pages",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [
+        752,
+        352
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-nano",
+        "options": {
+          "temperature": 0,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        432
+      ],
+      "id": "c01254a0-1a09-477f-8595-70c71b32a886",
+      "name": "Azure OpenAI Chat Model2",
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "BHWwkASmhpZnRdOs",
+          "name": "Azure Open AI account for 4.1 nano"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "= {{ $json.pages.join('---') }}",
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"array\",\n  \"items\": {\n\t\"type\": \"object\",\n\t\"properties\": {\n      \"familyName\": { \"type\": \"string\" },\n      \"firstName\": { \"type\": \"string\" },\n      \"birthName\": { \"type\": \"string\" },\n      \"birthDate\": { \"type\": \"string\" },\n      \"NInumber\": { \"type\": \"string\" },\n      \"memberCountry\": { \"type\": \"string\" },\n      \"startDay\": { \"type\": \"string\" },\n      \"lastDay\": { \"type\": \"string\" },\n      \"sendingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyName\": { \"type\": \"string\" },\n      \"employingCompanyCountry\": { \"type\": \"string\" },\n      \"issueDate\": { \"type\": \"string\" }\n\t}\n  }}",
+        "options": {
+          "systemPromptTemplate": "You are a form field extraction assistant. \nBelow is the final reconciled text from an A1 certificate. \n\nEach field in the text appears like  field number field name field value e.g. \n\n1.1 Személyi azonosító szám: 12345678\n\nThe potential field numbers are the following:\n\n\"1.1\", \"1.2\", \"1.3\", \"1.4\", \"1.5\", \"1.6\", \"1.7\", \"1.8\", \"1.8.1\", \"1.8.2\",\"1.8.3\",\"1.8.4\",\"1.9\", \"1.9.1\", \"1.9.2\",\"1.9.3\",\"1.9.4\", \"2.1\", \"2.2\", \"2.3\", \"2.4\", \"2.5\", \"2.6\"\n\"3.1\", \"3.2\", \"3.3\", \"3.4\", \"3.5\", \"3.6\", \"3.7\", \"3.8\", \"3.9\", \"3.10\", \"3.11\", \"3.12\", \"4.1.1\", \"4.1.2\",\"4.2\", \"4.3\", \"4.4\", \"4.4.1\", \"4.4.2\", \"4.4.3\", \"4.4.4\", \"5.1\"\n\"5.2\", \"5.3\", \"6.1\", \"6.2\", \"6.3\", \"6.4\", \"6.5\", \"6.6\", \"6.7\", \"6.8\", \"6.9\", \"6.10\", \"6.11\" \n\nTask:\n1. Identify each field by its numeric identifier \n2. Extract the following field label and the value.\n\n1.1 Személyi azonosító szám \n1.2 Családi név \n1.3 Utónév \n1.4 Születési név \n1.5 Születési dátum\n\n2.1 Tagállam\n2.2 Kezdő nap\n2.3 Utolsó nap\n\n4.3 sendingCompanyName\n5.1 or 5.2 employing company: separate the company name and country\n\n6.10 dátum ( date when the form was issued)\n\n**Important:**  \n- Do not modify or translate the field value.  \n- If you are uncertain about a field’s value, output `null` as the value instead of guessing.  \n\nFor country fields, convert the name into its corresponding ISO 3166-1 alpha-3 code (e.g., 'Austria' -> 'AUT', 'Germany' -> 'DEU', 'Hungary' -> 'HUN')."
+        }
+      },
+      "id": "ab2c627c-6bc9-4897-ab8f-5da3e2593cf9",
+      "name": "Extract Form values from OCR",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "position": [
+        1168,
+        272
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2752,
+        240
+      ],
+      "id": "1fde1a46-5d75-41dc-8b35-52d1aa04e726",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json?.output || {}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2432,
+        32
+      ],
+      "id": "7be3ab5d-ac37-4cc4-9454-f4bad9ed3897",
+      "name": "Extract AI Output "
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function removeTrailingDot(string) {\n  return string.replace(/\\.$/, '');\n}\n\nfunction compareFieldsWithOCR(obj) {\n  const diffResult = {};\n\n  // Loop through each key in the object\n  Object.keys(obj).forEach(key => {\n    // Only process non-OCR keys\n    if (!key.startsWith(\"OCR\")) {\n      const ocrKey = \"OCR\" + key; // Build corresponding OCR key\n\n      if (ocrKey in obj) {\n        const originalVal = obj[key];\n        const ocrVal = obj[ocrKey];\n\n        // Only compare if OCR value is not an empty string or the string \"null\"\n        if (ocrVal !== \"\" && ocrVal !== \"null\") {\n          // Compare the original and OCR values\n          diffResult[key + \"Diff\"] = (removeTrailingDot(originalVal) === removeTrailingDot(ocrVal)) ? \"equivalent\" : \"different\";\n        }\n      }\n    }\n  });\n\n  return diffResult;\n}\n\nconst input = $input.item.json;\nconst diff = compareFieldsWithOCR(input);\n\nreturn {\n  ...input,\n  ...diff\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2992,
+        240
+      ],
+      "id": "4b2cf6a5-0e8d-416f-8277-e5a36924d6a7",
+      "name": "Create Summary"
+    },
+    {
+      "parameters": {
+        "jsCode": "function addPrefixToProperties(obj, prefix = 'OCR') {\n  const result = {};\n  Object.keys(obj).forEach(key => {\n    result[prefix + key] = obj[key];\n  });\n  return result;\n}\n\nreturn addPrefixToProperties($input.first()?.json?.output?.[0] || {});\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        368
+      ],
+      "id": "e671d5e9-dc2a-4284-b771-77e24c51bfc5",
+      "name": "Prefix result"
+    }
+  ],
+  "connections": {
+    "Combine All Pages": {
+      "main": [
+        [
+          {
+            "node": "Extract All Data into JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "OCR PDF Page Image",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract All Data into JSON",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Input Trigger": {
+      "main": [
+        [
+          {
+            "node": "Split PDF into pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Split PDF into pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split PDF into pages": {
+      "main": [
+        [
+          {
+            "node": "Extract Pages from Zip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Pages from Zip": {
+      "main": [
+        [
+          {
+            "node": "Create Pdf page list",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flag not needed pages": {
+      "main": [
+        [
+          {
+            "node": "Remove Pages with metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Pages with metadata": {
+      "main": [
+        [
+          {
+            "node": "Convet PDF to image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Remove Noise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convet PDF to image": {
+      "main": [
+        [
+          {
+            "node": "OCR PDF Page Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort Pages": {
+      "main": [
+        [
+          {
+            "node": "Loop Over PDFs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge OCR text with original Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Pdf page list": {
+      "main": [
+        [
+          {
+            "node": "Sort Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over PDFs": {
+      "main": [
+        [
+          {
+            "node": "Merge OCR text with original Binary",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Legacy OCR PDF page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR PDF Page Image": {
+      "main": [
+        [
+          {
+            "node": "Combine All Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract All Data into JSON": {
+      "main": [
+        [
+          {
+            "node": "Extract AI Output ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Legacy OCR PDF page": {
+      "main": [
+        [
+          {
+            "node": "Extract Text from OCRed PDF page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text from OCRed PDF page": {
+      "main": [
+        [
+          {
+            "node": "Loop Over PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge OCR text with original Binary": {
+      "main": [
+        [
+          {
+            "node": "Flag not needed pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Noise": {
+      "main": [
+        [
+          {
+            "node": "Combine OCR Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine OCR Pages": {
+      "main": [
+        [
+          {
+            "node": "Extract Form values from OCR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract Form values from OCR",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Form values from OCR": {
+      "main": [
+        [
+          {
+            "node": "Prefix result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract AI Output ": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prefix result": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "fe699e26-943d-4f7d-a720-19f9cb89a18c",
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-05-17T12:26:00.457Z",
+      "updatedAt": "2025-05-17T12:26:00.457Z",
+      "role": "workflow:owner",
+      "workflowId": "I00MCGDyglUVKuco",
+      "projectId": "8CGNWCigao1I4jrt",
+      "project": {
+        "createdAt": "2025-04-02T11:57:30.751Z",
+        "updatedAt": "2025-04-02T12:39:24.926Z",
+        "id": "8CGNWCigao1I4jrt",
+        "name": "istvano orbani <admin@localhost.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}
