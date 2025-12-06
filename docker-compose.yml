@@ -84,6 +84,10 @@ x-shared: &shared
     - BER_GRAPHQL_TOKEN
     - BER_API_ENDPOINT
     - BER_API_AUTH_TOKEN
+    - JIRA_CLOUD_ID
+    - JIRA_BASE_URL
+    - JIRA_WORKSPACE_ID
+
   links:
     - postgres
     - redis
